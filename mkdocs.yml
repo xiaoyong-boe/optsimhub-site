@@ -30,16 +30,8 @@ theme:
     - search.highlight
     - content.code.copy
     - content.action.edit
-  icon:
-    repo: fontawesome/brands/github
-
-repo_name: xiaoyong-boe/optsimhub-site
-repo_url: https://github.com/xiaoyong-boe/optsimhub-site
 
 extra:
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/xiaoyong-boe/optsimhub-site
 
 markdown_extensions:
   - pymdownx.highlight:

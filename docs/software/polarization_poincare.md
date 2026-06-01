@@ -38,4 +38,4 @@
 
 ## 反馈与支持
 
-如遇问题，请提交 [GitHub Issue](https://github.com/guangyanbiji/polarization_poincare/issues)
+如遇问题，请通过邮件联系我们。

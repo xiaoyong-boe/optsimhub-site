@@ -8,7 +8,6 @@ OptSimHub（optsimhub.cn）专注于光学仿真软件的开发与发布。
 
 ## 联系方式
 
-- **GitHub:** https://github.com/xiaoyong-boe/optsimhub-site
 - **邮箱:** （待补充）
 
 ## 版权声明
