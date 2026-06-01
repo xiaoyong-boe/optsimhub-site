@@ -25,7 +25,7 @@ jobs:
       - run: mkdocs build --site-dir site
       - uses: actions/upload-pages-artifact@v3
         with:
-          artifact: site
+          path: site
 
   deploy:
     needs: build
