@@ -31,6 +31,7 @@ theme:
     - content.code.copy
 
 extra:
+  generator: false
 
 markdown_extensions:
   - pymdownx.highlight:
