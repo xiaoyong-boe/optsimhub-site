@@ -1,17 +1,17 @@
 # 关于
 
-光研笔记（guangyanbiji.com）是一个光学仿真软件发布平台。
+OptSimHub（optsimhub.cn）专注于光学仿真软件的开发与发布。
 
 ## 理念
 
-专注于光学仿真的工程实践，追求准确、实用、高效的仿真工具。
+追求准确、实用、高效的光学仿真工具。
 
 ## 联系方式
 
-- **GitHub:** https://github.com/guangyanbiji
+- **GitHub:** https://github.com/xiaoyong-boe/optsimhub-site
 - **邮箱:** （待补充）
 
 ## 版权声明
 
-本网站上所有软件和文档的版权归属光研笔记所有。
+本网站上所有软件和文档的版权归属 OptSimHub 所有。
 如需转载或引用，请联系作者授权。

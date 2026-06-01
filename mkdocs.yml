@@ -1,7 +1,7 @@
 site_name: 光研笔记
 site_description: 光学仿真软件发布站
 site_author: 光研笔记
-site_url: https://www.guangyanbiji.com
+site_url: https://www.optsimhub.cn
 
 theme:
   name: material
@@ -33,13 +33,13 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
-repo_name: guangyanbiji/guangyanbiji-site
-repo_url: https://github.com/guangyanbiji/guangyanbiji-site
+repo_name: xiaoyong-boe/optsimhub-site
+repo_url: https://github.com/xiaoyong-boe/optsimhub-site
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/guangyanbiji
+      link: https://github.com/xiaoyong-boe/optsimhub-site
 
 markdown_extensions:
   - pymdownx.highlight:
