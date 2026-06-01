@@ -1,0 +1,63 @@
+site_name: 光研笔记
+site_description: 光学仿真软件发布站
+site_author: 光研笔记
+site_url: https://www.guangyanbiji.com
+
+theme:
+  name: material
+  language: zh
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      primary: indigo
+      accent: indigo
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  icon:
+    repo: fontawesome/brands/github
+
+repo_name: guangyanbiji/guangyanbiji-site
+repo_url: https://github.com/guangyanbiji/guangyanbiji-site
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/guangyanbiji
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.mark
+  - attr_list
+  - md_in_html
+
+nav:
+  - 首页: index.md
+  - 软件下载:
+    - polarization_poincare: software/polarization_poincare.md
+  - 文档:
+    - 使用说明: docs/guide.md
+    - API参考: docs/api.md
+  - 关于: about.md
