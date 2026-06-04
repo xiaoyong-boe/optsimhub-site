@@ -8,7 +8,7 @@
 
 ## 最新软件
 
-### polarization_poincare
+### 邦加球 V1
 
 偏振光学仿真工具
 
