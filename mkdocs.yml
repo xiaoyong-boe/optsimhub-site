@@ -47,7 +47,8 @@ markdown_extensions:
 
 nav:
   - 首页: index.md
-  - 在线演示: demo/index.html
+  - 邦加球V1: demo/index.html
+  - AG生成: ag/index.md
   - 文档:
     - 使用说明: docs/guide.md
     - API参考: docs/api.md
