@@ -47,7 +47,6 @@ markdown_extensions:
 
 nav:
   - 首页: index.md
-  - 软件展示: demo/index.html
   - 随机纹理: ag/index.md
   - 文档:
     - 使用说明: docs/guide.md
