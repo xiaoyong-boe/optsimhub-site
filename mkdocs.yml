@@ -47,6 +47,7 @@ markdown_extensions:
 
 nav:
   - 首页: index.md
+  - 在线演示: demo/index.html
   - 软件下载:
     - polarization_poincare: software/polarization_poincare.md
   - 文档:

@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Polarization Poincaré — Web</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script>
+/**
+ * Polarization Physics Module
+ * Ported from Python: stokes_calc.py + _phase_retard from main_window.py
+ */
+const StokesCalc = {
+    stokesFromAngles(psiDeg, chiDeg) {
+        const psi = psiDeg * Math.PI / 180;
+        const chi = chiDeg * Math.PI / 180;
+        const S1 = Math.cos(2 * psi) * Math.cos(2 * chi);
+        const S2 = Math.sin(2 * psi) * Math.cos(2 * chi);
+        const S3 = -Math.sin(2 * chi);
+        const norm = Math.sqrt(S1 * S1 + S2 * S2 + S3 * S3) + 1e-15;
+        return [1.0, S1 / norm, S2 / norm, S3 / norm];
+    },
+    jonesFromStokes(S) {
+        const Sn = S[0] > 1e-15 ? S.map(s => s / S[0]) : [...S];
+        const Ex2 = 0.5 * (Sn[0] + Sn[1]);
+        const Ey2 = 0.5 * (Sn[0] - Sn[1]);
+        const Ex = Math.sqrt(Math.max(0, Ex2));
+        const arg = (Math.abs(Sn[2]) > 1e-15 || Math.abs(Sn[3]) > 1e-15) ? Math.atan2(Sn[3], Sn[2]) : 0;
+        const EyMag = Math.sqrt(Math.max(0, Ey2));
+        return { Ex: Ex, Ey: { re: EyMag * Math.cos(arg), im: EyMag * Math.sin(arg) } };
+    },
+    ellipseParams(S) {
+        const Sn = S[0] > 1e-15 ? S.map(s => s / S[0]) : [...S];
+        const S1 = Sn[1], S2 = Sn[2], S3 = Sn[3];
+        const norm = Math.sqrt(S1 * S1 + S2 * S2 + S3 * S3) + 1e-15;
+        const S1n = S1 / norm, S2n = S2 / norm, S3n = S3 / norm;
+        const psi = 0.5 * Math.atan2(S2n, S1n) * 180 / Math.PI;
+        const chi = -0.5 * Math.asin(S3n) * 180 / Math.PI;
+        let label;
+        if (Math.abs(chi) > 40) { label = S3n > 0 ? 'RCP' : 'LCP'; }
+        else if (Math.abs(chi) < 3) { label = 'linear'; }
+        else { label = 'elliptical'; }
+        return { psi, chi, label };
+    },
+    muellerWaveplate(deltaRad, thetaDeg) {
+        const c = Math.cos(deltaRad), s = Math.sin(deltaRad);
+        const th2 = 2 * thetaDeg * Math.PI / 180;
+        const cos2t = Math.cos(th2), sin2t = Math.sin(th2);
+        const M0 = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, c, -s], [0, 0, s, c]];
+        const R = [[1, 0, 0, 0], [0, cos2t, sin2t, 0], [0, -sin2t, cos2t, 0], [0, 0, 0, 1]];
+        const RT = [[1, 0, 0, 0], [0, cos2t, -sin2t, 0], [0, sin2t, cos2t, 0], [0, 0, 0, 1]];
+        return matMul44(matMul44(RT, M0), R);
+    },
+    mdot(M, S) {
+        return [
+            M[0][0]*S[0]+M[0][1]*S[1]+M[0][2]*S[2]+M[0][3]*S[3],
+            M[1][0]*S[0]+M[1][1]*S[1]+M[1][2]*S[2]+M[1][3]*S[3],
+            M[2][0]*S[0]+M[2][1]*S[1]+M[2][2]*S[2]+M[2][3]*S[3],
+            M[3][0]*S[0]+M[3][1]*S[1]+M[3][2]*S[2]+M[3][3]*S[3]
+        ];
+    },
+    eye4() { return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]; }
+};
+const PhaseRetard = {
+    calc(layer, lambdaNm, isNormal, thetaInc) {
+        const n_o = layer.n_o, n_e = layer.n_e, n_z = layer.n_z, d = layer.d;
+        if (layer.Type === 'uniaxial') {
+            const dn = n_e - n_o;
+            if (Math.abs(dn) < 1e-10) return 0;
+            if (isNormal) return 2 * Math.PI * dn * d / lambdaNm;
+            const thIn = thetaInc * Math.PI / 180;
+            let sinThInt = Math.max(-1, Math.min(1, Math.sin(thIn) / n_o));
+            const cosThInt = Math.sqrt(Math.max(0, 1 - sinThInt * sinThInt));
+            const phiFast = (layer.theta_fast || 0) * Math.PI / 180;
+            const cosAlpha = sinThInt * Math.cos(phiFast);
+            const nEffE = n_o * n_e / Math.sqrt(Math.max(1e-15, n_e*n_e*cosAlpha*cosAlpha + n_o*n_o*(1-cosAlpha*cosAlpha)));
+            const dnEff = nEffE - n_o;
+            if (Math.abs(dnEff) < 1e-10) return 0;
+            return 2 * Math.PI * dnEff * d / (lambdaNm * cosThInt);
+        }
+        if (layer.Type === 'biaxial') {
+            const dnXY = n_e - n_o;
+            if (isNormal) { if (Math.abs(dnXY) < 1e-10) return 0; return 2 * Math.PI * dnXY * d / lambdaNm; }
+            const thIn = thetaInc * Math.PI / 180;
+            let sinThInt = Math.max(-1, Math.min(1, Math.sin(thIn) / n_o));
+            const cosThInt = Math.sqrt(Math.max(0, 1 - sinThInt * sinThInt));
+            const nXZ = n_o * n_z / Math.sqrt(Math.max(1e-15, n_z*n_z*cosThInt*cosThInt + n_o*n_o*sinThInt*sinThInt));
+            const dnEff = Math.abs(n_e - nXZ);
+            if (Math.abs(dnEff) < 1e-10) return 0;
+            return 2 * Math.PI * dnEff * d / (lambdaNm * cosThInt);
+        }
+        return 0;
+    }
+};
+function matMul44(A, B) {
+    const C = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) C[i][j] += A[i][k] * B[k][j];
+    return C;
+}
+function computeOutput(state) {
+    const S_in = StokesCalc.stokesFromAngles(state.psiPol, state.chiPol);
+    const isNormal = state.thetaInc < 0.01;
+    let M_total = StokesCalc.eye4();
+    for (const layer of state.layers) {
+        const delta = PhaseRetard.calc(layer, state.lambdaNm, isNormal, state.thetaInc);
+        if (Math.abs(delta) > 1e-10) { const M_layer = StokesCalc.muellerWaveplate(delta, layer.theta_fast || 0); M_total = matMul44(M_layer, M_total); }
+    }
+    const S_out = StokesCalc.mdot(M_total, S_in);
+    const layerStates = [], trajPoints = [[S_in[1], S_in[2], S_in[3]]];
+    let M_running = StokesCalc.eye4();
+    for (const layer of state.layers) {
+        const delta = PhaseRetard.calc(layer, state.lambdaNm, isNormal, state.thetaInc);
+        if (Math.abs(delta) <= 1e-10) { const Sl = StokesCalc.mdot(M_running, S_in); const nl = Math.sqrt(Sl[1]*Sl[1]+Sl[2]*Sl[2]+Sl[3]*Sl[3])+1e-15; layerStates.push([Sl[1]/nl, Sl[2]/nl, Sl[3]/nl]); trajPoints.push([Sl[1]/nl, Sl[2]/nl, Sl[3]/nl]); continue; }
+        const nSub = Math.max(1, Math.ceil(Math.abs(delta) / Math.PI));
+        const deltaSub = delta / nSub;
+        const M_sub = StokesCalc.muellerWaveplate(deltaSub, layer.theta_fast || 0);
+        for (let k = 0; k < nSub; k++) { M_running = matMul44(M_sub, M_running); const Sl = StokesCalc.mdot(M_running, S_in); const nl = Math.sqrt(Sl[1]*Sl[1]+Sl[2]*Sl[2]+Sl[3]*Sl[3])+1e-15; const pt = [Sl[1]/nl, Sl[2]/nl, Sl[3]/nl]; if (k === nSub - 1) layerStates.push(pt); trajPoints.push(pt); }
+    }
+    const ep = StokesCalc.ellipseParams(S_out);
+    const jv = StokesCalc.jonesFromStokes(S_out);
+    const polDeg = Math.sqrt(S_out[1]*S_out[1]+S_out[2]*S_out[2]+S_out[3]*S_out[3]);
+    return { S_in, S_out, M_total, layerStates, trajPoints, psiEll: ep.psi, chiEll: ep.chi, ellLabel: ep.label, jonesEx: jv.Ex, jonesEy: jv.Ey, polDeg };
+}
+</script>
+<style>
+/* ============================================================
+   Dark Scientific Dashboard Theme
+   ============================================================ */
+:root {
+  --bg-deep: #f1f5f9;
+  --bg-panel: #f8fafc;
+  --bg-elevated: #ffffff;
+  --border: #e2e8f0;
+  --border-active: #0284c7;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-dim: #94a3b8;
+  --accent-cyan: #0284c7;
+  --accent-green: #059669;
+  --accent-amber: #d97706;
+  --accent-red: #dc2626;
+  --accent-blue: #2563eb;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ---- Top Bar ---- */
+.top-bar {
+  height: 36px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 24px;
+  flex-shrink: 0;
+}
+.top-bar .param {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-bar .param .label { color: var(--text-secondary); font-size: 11px; }
+.top-bar .param .value { color: var(--accent-cyan); font-weight: 600; }
+
+/* ---- Main Layout ---- */
+.main-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- Left Panel ---- */
+.left-panel {
+  width: 310px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px;
+  gap: 8px;
+}
+.left-panel::-webkit-scrollbar { width: 4px; }
+.left-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+.panel-title {
+  color: var(--text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+/* ---- Mode Buttons ---- */
+.mode-group {
+  display: flex;
+  gap: 4px;
+}
+.mode-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.mode-btn:hover { border-color: var(--accent-cyan); color: var(--text-primary); }
+.mode-btn.active {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: rgba(2,132,199,0.08);
+  box-shadow: 0 0 0 1px rgba(2,132,199,0.15);
+}
+.mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+/* ---- Preset Buttons ---- */
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-top: 6px;
+}
+.preset-btn {
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.preset-btn:hover { border-color: var(--accent-cyan); color: var(--text-primary); }
+.preset-btn.active {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  background: rgba(2,132,199,0.08);
+}
+
+/* ---- Sliders ---- */
+.slider-group { margin: 6px 0; }
+.slider-group .slider-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.slider-group .slider-label .name { color: var(--text-secondary); font-size: 10px; }
+.slider-group .slider-label .val { color: var(--accent-cyan); font-size: 11px; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  border: 2px solid var(--bg-elevated);
+  cursor: pointer;
+}
+
+/* ---- Layer Table ---- */
+.bottom-panel {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+.layer-table-wrap { max-height: 160px; overflow-y: auto; flex: 1; }
+.layer-table-wrap::-webkit-scrollbar { width: 4px; }
+.layer-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.layer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+.layer-table th {
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  padding: 4px 3px;
+  text-align: center;
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  font-size: 9px;
+}
+.layer-table td { padding: 2px 3px; border-bottom: 1px solid rgba(0,0,0,0.06); text-align: center; }
+.layer-table tr:hover td { background: rgba(2,132,199,0.04); }
+.layer-table input, .layer-table select {
+  width: 100%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 4px;
+  text-align: center;
+}
+.layer-table input:focus, .layer-table select:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+}
+.layer-table input:disabled {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
+.layer-table .dim-cell { color: var(--text-dim); opacity: 0.6; }
+
+.layer-btns {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.layer-btns button {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.layer-btns button:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+/* ---- Center Poincaré ---- */
+.poincare-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-deep);
+  min-width: 0;
+  position: relative;
+}
+#plot3d {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- Right Panel ---- */
+.right-panel {
+  width: 360px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px;
+  gap: 8px;
+}
+.right-panel::-webkit-scrollbar { width: 4px; }
+.right-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ---- Ellipse Canvas ---- */
+.ellipse-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.ellipse-container canvas {
+  background: var(--bg-deep);
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+.ellipse-label {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ellipse-label.linear { color: var(--accent-blue); }
+.ellipse-label.elliptical { color: var(--accent-blue); }
+.ellipse-label.lcp, .ellipse-label.rcp { color: var(--accent-amber); }
+
+/* ---- Stokes Bars ---- */
+.stokes-bars { display: flex; flex-direction: column; gap: 4px; }
+.stokes-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stokes-row .label { width: 18px; color: var(--text-secondary); font-size: 10px; }
+.stokes-bar-wrap {
+  flex: 1;
+  height: 12px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.stokes-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.2s, margin-left 0.2s;
+  position: absolute;
+}
+.stokes-bar.s1 { background: var(--accent-green); }
+.stokes-bar.s2 { background: var(--accent-amber); }
+.stokes-bar.s3 { background: var(--accent-cyan); }
+.stokes-row .val {
+  width: 52px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-primary);
+}
+
+/* ---- Mueller Matrix ---- */
+.mueller-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  font-size: 10px;
+}
+.mueller-grid span {
+  padding: 3px 4px;
+  text-align: center;
+  background: var(--bg-panel);
+  border-radius: 2px;
+}
+.mueller-grid span.diag { color: var(--accent-green); }
+.mueller-grid span.off { color: var(--accent-amber); }
+
+/* ---- Jones ---- */
+.jones-display { font-size: 11px; color: var(--text-primary); }
+.jones-display .ex { color: var(--accent-cyan); }
+.jones-display .ey { color: var(--accent-amber); }
+
+/* ---- View Buttons ---- */
+.view-btns {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+.view-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.view-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<header class="top-bar">
+  <div class="param"><span class="label">λ</span><span class="value" id="p-lambda">633 nm</span></div>
+  <div class="param"><span class="label">θ</span><span class="value" id="p-theta">0.0°</span></div>
+  <div class="param"><span class="label">层数</span><span class="value" id="p-nlayers">1</span></div>
+  <div class="param"><span class="label">DoP</span><span class="value" id="p-poldeg">1.0000</span></div>
+  <div class="param"><span class="label">模式</span><span class="value" id="p-mode">垂直 | 简化</span></div>
+</header>
+
+<!-- Main Content -->
+<div class="main-content">
+
+<!-- Left Panel -->
+<aside class="left-panel">
+
+  <!-- Mode -->
+  <div class="panel">
+    <div class="panel-title">入射模式</div>
+    <div class="mode-group">
+      <button class="mode-btn active" id="btn-normal" onclick="setModeNormal()">垂直入射 θ=0°</button>
+      <button class="mode-btn" id="btn-oblique" disabled>斜入射 [即将开放]</button>
+    </div>
+  </div>
+
+  <!-- Model -->
+  <div class="panel">
+    <div class="panel-title">计算模型</div>
+    <div class="mode-group">
+      <button class="mode-btn active" id="btn-simplified" onclick="setModelSimplified()">简化模型</button>
+      <button class="mode-btn" id="btn-berreman" disabled>Berreman 4×4 [即将开放]</button>
+    </div>
+  </div>
+
+  <!-- Polarization Sliders -->
+  <div class="panel">
+    <div class="panel-title">入射偏振</div>
+    <div class="mode-group" style="margin-bottom:6px">
+      <button class="mode-btn active" id="btn-wl-single" onclick="setWlMode('single')">单波长</button>
+      <button class="mode-btn" id="btn-wl-multi" onclick="setWlMode('multi')">多波长</button>
+    </div>
+    <!-- Single wavelength -->
+    <div id="wl-single-group">
+      <div class="slider-group">
+        <div class="slider-label"><span class="name">λ 波长 (nm)</span></div>
+        <input type="number" id="in-lambda" value="633" min="100" max="10000" step="1"
+               style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:3px 6px;text-align:center"
+               onchange="onLambdaChange()">
+      </div>
+    </div>
+    <!-- Multi wavelength -->
+    <div id="wl-multi-group" style="display:none">
+      <div style="display:flex;gap:4px;margin-bottom:4px">
+        <div style="flex:1">
+          <div class="slider-label"><span class="name" style="font-size:9px">λ min (nm)</span></div>
+          <input type="number" id="in-wl-min" value="400" min="100" max="10000" step="1"
+                 style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
+                 onchange="onWlSweepChange()">
+        </div>
+        <div style="flex:1">
+          <div class="slider-label"><span class="name" style="font-size:9px">λ max (nm)</span></div>
+          <input type="number" id="in-wl-max" value="800" min="100" max="10000" step="1"
+                 style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
+                 onchange="onWlSweepChange()">
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span class="name">步长 (nm)</span></div>
+        <input type="number" id="in-wl-step" value="50" min="1" max="1000" step="1"
+               style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
+               onchange="onWlSweepChange()">
+      </div>
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span class="name">ψ (方位角)</span><span class="val" id="v-psi">45.0°</span></div>
+      <input type="range" id="sl-psi" min="0" max="180" value="45" step="0.5" oninput="onPsiChange()">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label"><span class="name">χ (椭圆率)</span><span class="val" id="v-chi">0.0°</span></div>
+      <input type="range" id="sl-chi" min="-45" max="45" value="0" step="0.5" oninput="onChiChange()">
+    </div>
+    <div class="preset-grid">
+      <button class="preset-btn" onclick="setPreset(0, 0)">L 0°</button>
+      <button class="preset-btn" onclick="setPreset(45, 0)">L 45°</button>
+      <button class="preset-btn" onclick="setPreset(90, 0)">L 90°</button>
+      <button class="preset-btn" onclick="setPreset(135, 0)">L 135°</button>
+      <button class="preset-btn" onclick="setPreset(45, 45)">LCP</button>
+      <button class="preset-btn" onclick="setPreset(45, -45)">RCP</button>
+    </div>
+  </div>
+
+</aside>
+
+<!-- Center: Poincaré Sphere -->
+<section class="poincare-area">
+  <div class="view-btns">
+    <button class="view-btn" onclick="setView('main')">主视角</button>
+    <button class="view-btn" onclick="setView('side')">侧视角</button>
+    <button class="view-btn" onclick="setView('top')">俯视角</button>
+  </div>
+  <div id="plot3d"></div>
+</section>
+
+<!-- Right Panel -->
+<aside class="right-panel">
+
+  <!-- Ellipse -->
+  <div class="panel">
+    <div class="panel-title">输出偏振态</div>
+    <div class="ellipse-container">
+      <canvas id="ellipse-canvas" width="200" height="200"></canvas>
+      <div class="ellipse-label linear" id="ellipse-label">linear</div>
+      <div style="margin-top:4px;font-size:10px;color:var(--text-secondary)">
+        ψ = <span id="ell-psi" style="color:var(--accent-cyan)">45.0°</span>
+        &nbsp;χ = <span id="ell-chi" style="color:var(--accent-cyan)">0.0°</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stokes Parameters -->
+  <div class="panel">
+    <div class="panel-title">Stokes 参数</div>
+    <div class="stokes-bars" id="stokes-bars">
+      <div class="stokes-row">
+        <span class="label">S1</span>
+        <div class="stokes-bar-wrap"><div class="stokes-bar s1" id="bar-s1"></div></div>
+        <span class="val" id="val-s1">+0.000</span>
+      </div>
+      <div class="stokes-row">
+        <span class="label">S2</span>
+        <div class="stokes-bar-wrap"><div class="stokes-bar s2" id="bar-s2"></div></div>
+        <span class="val" id="val-s2">+1.000</span>
+      </div>
+      <div class="stokes-row">
+        <span class="label">S3</span>
+        <div class="stokes-bar-wrap"><div class="stokes-bar s3" id="bar-s3"></div></div>
+        <span class="val" id="val-s3">+0.000</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mueller Matrix -->
+  <div class="panel">
+    <div class="panel-title">Mueller 矩阵</div>
+    <div class="mueller-grid" id="mueller-grid"></div>
+  </div>
+
+  <!-- Jones Vector -->
+  <div class="panel">
+    <div class="panel-title">Jones 矢量</div>
+    <div class="jones-display" id="jones-display"></div>
+  </div>
+
+</aside>
+
+</div>
+
+<!-- Bottom: Layer Table -->
+<section class="bottom-panel">
+  <div class="panel-title" style="padding:0 12px 8px">膜层堆栈</div>
+  <div style="display:flex;gap:12px;align-items:flex-start">
+    <div class="layer-table-wrap" style="flex:1">
+      <table class="layer-table" id="layer-table">
+        <thead>
+          <tr>
+            <th>Name</th><th>Type</th><th>n_o</th><th>n_e</th><th>n_z</th>
+            <th>θ_fast(°)</th><th>θ_xz(°)*</th><th>d (nm)</th>
+          </tr>
+        </thead>
+        <tbody id="layer-tbody"></tbody>
+      </table>
+    </div>
+    <div class="layer-btns" style="flex-direction:column;width:80px">
+      <button onclick="addLayer()">+ 添加</button>
+      <button onclick="removeLayer()">− 删除</button>
+      <button onclick="resetLayers()">恢复默认</button>
+    </div>
+  </div>
+</section>
+
+<script>
+// ============================================================
+// State
+// ============================================================
+const state = {
+  lambdaNm: 633,
+  thetaInc: 0,
+  psiPol: 45,
+  chiPol: 0,
+  wlMode: 'single',   // 'single' | 'multi'
+  wlMin: 400,
+  wlMax: 800,
+  wlStep: 50,
+  layers: [
+    { Name: 'BK7', Type: 'iso', n_o: 1.52, n_e: 1.52, n_z: 1.52, theta_fast: 0, theta_xz: 0, d: 500 }
+  ],
+  modeNormal: true,
+  modelSimplified: true
+};
+
+// ============================================================
+// Mode & Model buttons
+// ============================================================
+function setModeNormal() {
+  state.thetaInc = 0;
+  document.getElementById('btn-normal').classList.add('active');
+  refreshAll();
+}
+
+function setModelSimplified() {
+  refreshAll();
+}
+
+// ============================================================
+// Slider handlers
+// ============================================================
+function onPsiChange() {
+  state.psiPol = parseFloat(document.getElementById('sl-psi').value);
+  document.getElementById('v-psi').textContent = state.psiPol.toFixed(1) + '°';
+  clearPresets();
+  refreshDebounced();
+}
+
+function onChiChange() {
+  state.chiPol = parseFloat(document.getElementById('sl-chi').value);
+  document.getElementById('v-chi').textContent = state.chiPol.toFixed(1) + '°';
+  clearPresets();
+  refreshDebounced();
+}
+
+function onLambdaChange() {
+  const v = parseInt(document.getElementById('in-lambda').value) || 633;
+  state.lambdaNm = Math.max(100, Math.min(10000, v));
+  document.getElementById('in-lambda').value = state.lambdaNm;
+  refreshAll();
+}
+
+function setWlMode(mode) {
+  state.wlMode = mode;
+  document.getElementById('btn-wl-single').classList.toggle('active', mode === 'single');
+  document.getElementById('btn-wl-multi').classList.toggle('active', mode === 'multi');
+  document.getElementById('wl-single-group').style.display = mode === 'single' ? '' : 'none';
+  document.getElementById('wl-multi-group').style.display = mode === 'multi' ? '' : 'none';
+  refreshAll();
+}
+
+function onWlSweepChange() {
+  state.wlMin = parseInt(document.getElementById('in-wl-min').value) || 400;
+  state.wlMax = parseInt(document.getElementById('in-wl-max').value) || 800;
+  state.wlStep = parseInt(document.getElementById('in-wl-step').value) || 50;
+  if (state.wlMin > state.wlMax) { const t = state.wlMin; state.wlMin = state.wlMax; state.wlMax = t; }
+  if (state.wlStep < 1) state.wlStep = 1;
+  document.getElementById('in-wl-min').value = state.wlMin;
+  document.getElementById('in-wl-max').value = state.wlMax;
+  document.getElementById('in-wl-step').value = state.wlStep;
+  refreshAll();
+}
+
+function setPreset(psi, chi) {
+  state.psiPol = psi;
+  state.chiPol = chi;
+  document.getElementById('sl-psi').value = psi;
+  document.getElementById('sl-chi').value = chi;
+  document.getElementById('v-psi').textContent = psi.toFixed(1) + '°';
+  document.getElementById('v-chi').textContent = chi.toFixed(1) + '°';
+  // highlight matching preset button
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  const btns = document.querySelectorAll('.preset-btn');
+  for (const b of btns) {
+     const m = b.textContent.match(/L\s*(\d+)°/);
+     if (m && parseFloat(m[1]) === psi && chi === 0) { b.classList.add('active'); refreshAll(); return; }
+     if (b.textContent === 'LCP' && psi === 45 && chi === 45) { b.classList.add('active'); refreshAll(); return; }
+     if (b.textContent === 'RCP' && psi === 45 && chi === -45) { b.classList.add('active'); refreshAll(); return; }
+   }
+   refreshAll();
+}
+
+function clearPresets() {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+// ============================================================
+// Layer table
+// ============================================================
+const typeOptions = ['iso', 'uniaxial', 'biaxial'];
+const typeLabels = ['各向同性体', '单轴双折射', '双轴折射材料'];
+
+function renderLayerTable() {
+  const tbody = document.getElementById('layer-tbody');
+  tbody.innerHTML = '';
+  state.layers.forEach((layer, i) => {
+    const isUni = layer.Type === 'uniaxial';
+    const isBi = layer.Type === 'biaxial';
+    const nEditable = isUni || isBi;
+    const nZEditable = isBi;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input value="${layer.Name}" onchange="updateLayer(${i},'Name',this.value)"></td>
+      <td><select onchange="onTypeChange(${i},this.value)">
+        ${typeOptions.map((t, j) => `<option value="${t}" ${t === layer.Type ? 'selected' : ''}>${typeLabels[j]}</option>`).join('')}
+      </select></td>
+      <td><input value="${layer.n_o}" onchange="updateLayer(${i},'n_o',parseFloat(this.value)||1.5)" type="number" step="0.01"></td>
+      <td><input value="${layer.n_e}" onchange="if(${nEditable})updateLayer(${i},'n_e',parseFloat(this.value)||1.5)" type="number" step="0.01" ${nEditable ? '' : 'disabled class="dim-cell"'}> </td>
+      <td><input value="${layer.n_z}" onchange="if(${nZEditable})updateLayer(${i},'n_z',parseFloat(this.value)||1.5)" type="number" step="0.01" ${nZEditable ? '' : 'disabled class="dim-cell"'}></td>
+      <td><input value="${layer.theta_fast}" onchange="updateLayer(${i},'theta_fast',parseFloat(this.value)||0)" type="number" step="1" style="color:#f59e0b"></td>
+      <td><input value="${layer.theta_xz}" disabled class="dim-cell" type="number" step="1"></td>
+      <td><input value="${layer.d}" onchange="updateLayer(${i},'d',parseFloat(this.value)||100)" type="number" step="1"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateLayer(i, key, val) {
+  state.layers[i][key] = val;
+  if (key === 'n_o') {
+    if (state.layers[i].Type === 'iso') {
+      state.layers[i].n_e = val;
+      state.layers[i].n_z = val;
+    } else if (state.layers[i].Type === 'uniaxial') {
+      state.layers[i].n_z = val;
+    }
+  }
+  refreshAll();
+}
+
+function onTypeChange(i, newType) {
+  state.layers[i].Type = newType;
+  const no = state.layers[i].n_o;
+  if (newType === 'iso') {
+    state.layers[i].n_e = no;
+    state.layers[i].n_z = no;
+  } else if (newType === 'uniaxial') {
+    state.layers[i].n_z = no;
+  }
+  renderLayerTable();
+  refreshAll();
+}
+
+function addLayer() {
+  state.layers.push({
+    Name: `L${state.layers.length + 1}`, Type: 'iso',
+    n_o: 1.5, n_e: 1.5, n_z: 1.5, theta_fast: 0, theta_xz: 0, d: 100
+  });
+  renderLayerTable();
+  refreshAll();
+}
+
+function removeLayer() {
+  if (state.layers.length > 0) state.layers.pop();
+  renderLayerTable();
+  refreshAll();
+}
+
+function resetLayers() {
+  state.layers = [
+    { Name: 'BK7', Type: 'iso', n_o: 1.52, n_e: 1.52, n_z: 1.52, theta_fast: 0, theta_xz: 0, d: 500 }
+  ];
+  renderLayerTable();
+  refreshAll();
+}
+
+// ============================================================
+// Poincaré sphere (Plotly.js)
+// ============================================================
+function buildPoincareBase() {
+  // Sphere wireframe
+  const phi = [], theta = [];
+  for (let i = 0; i <= 30; i++) {
+    phi[i] = []; theta[i] = [];
+    const p = (i / 30) * Math.PI;
+    for (let j = 0; j <= 60; j++) {
+      const t = (j / 60) * 2 * Math.PI;
+      phi[i][j] = p;
+      theta[i][j] = t;
+    }
+  }
+  const x = phi.map(r => r.map((p, j) => Math.sin(p) * Math.cos(theta[r.indexOf(p)][j])));
+  const y = phi.map(r => r.map((p, j) => Math.sin(p) * Math.sin(theta[r.indexOf(p)][j])));
+  const z = phi.map(r => r.map((p, j) => Math.cos(p)));
+
+  // Equator circle
+  const eq = Array.from({ length: 100 }, (_, i) => {
+    const a = (i / 100) * 2 * Math.PI;
+    return [Math.cos(a), Math.sin(a), 0];
+  });
+
+  // Meridians
+  const meridians = [];
+  for (let m = 0; m < 12; m++) {
+    const az = (m / 12) * 2 * Math.PI;
+    const pts = Array.from({ length: 50 }, (_, i) => {
+      const el = (i / 49) * Math.PI;
+      return [Math.sin(el) * Math.cos(az), Math.sin(el) * Math.sin(az), Math.cos(el)];
+    });
+    meridians.push(pts);
+  }
+
+  const traces = [
+    // Sphere surface
+    {
+      type: 'surface', x, y, z,
+      colorscale: [[0, '#e2e8f0'], [1, '#cbd5e1']],
+      opacity: 0.6, showscale: false,
+      hoverinfo: 'none'
+    },
+    // Equator
+    {
+      type: 'scatter3d', mode: 'lines',
+      x: eq.map(p => p[0]), y: eq.map(p => p[1]), z: eq.map(p => p[2]),
+      line: { color: 'rgba(0,0,0,0.15)', width: 1 },
+      hoverinfo: 'none', showlegend: false
+    }
+  ];
+
+  // Meridians
+  meridians.forEach(m => {
+    traces.push({
+      type: 'scatter3d', mode: 'lines',
+      x: m.map(p => p[0]), y: m.map(p => p[1]), z: m.map(p => p[2]),
+      line: { color: 'rgba(0,0,0,0.08)', width: 0.5 },
+      hoverinfo: 'none', showlegend: false
+    });
+  });
+
+  // Coordinate axes
+  const axisLen = 1.25;
+  [[1, 0, 0, 'S1 0°', '#334155'], [-1, 0, 0, 'S1 90°', '#334155'],
+   [0, 1, 0, 'S2 +45°', '#334155'], [0, -1, 0, 'S2 −45°', '#334155'],
+   [0, 0, 1, 'RCP', '#b45309'], [0, 0, -1, 'LCP', '#b45309']]
+    .forEach(([ax, ay, az, label, color]) => {
+      traces.push({
+        type: 'scatter3d', mode: 'lines',
+        x: [0, ax * axisLen], y: [0, ay * axisLen], z: [0, az * axisLen],
+        line: { color, width: 1.5 },
+        hoverinfo: 'none', showlegend: false
+      });
+      if (label) {
+        traces.push({
+          type: 'scatter3d', mode: 'text',
+          x: [ax * (axisLen + 0.15)], y: [ay * (axisLen + 0.15)], z: [az * (axisLen + 0.15)],
+          text: [label],
+          textfont: { color, size: 13, family: 'Arial, sans-serif' },
+          hoverinfo: 'none', showlegend: false
+        });
+      }
+    });
+
+  // Data traces (will be updated)
+  traces.push({
+    type: 'scatter3d', mode: 'markers+text', name: 'input',
+    x: [0], y: [1], z: [0],
+    text: ['in'],
+    textfont: { color: '#10b981', size: 10, family: 'Courier New, monospace' },
+    textposition: 'top center',
+    marker: { color: '#10b981', size: 3, symbol: 'circle' },
+    hoverinfo: 'none', showlegend: false
+  });
+  traces.push({
+    type: 'scatter3d', mode: 'markers+text', name: 'output',
+    x: [0], y: [1], z: [0],
+    text: ['out'],
+    textfont: { color: '#ef4444', size: 10, family: 'Courier New, monospace' },
+    textposition: 'top center',
+    marker: { color: '#ef4444', size: 3, symbol: 'circle' },
+    hoverinfo: 'none', showlegend: false
+  });
+  traces.push({
+    type: 'scatter3d', mode: 'lines+markers', name: 'trajectory',
+    x: [0], y: [1], z: [0],
+    line: { color: '#3b82f6', width: 2 },
+    marker: { color: '#3b82f6', size: 1 },
+    hoverinfo: 'none', showlegend: false
+  });
+  // Spectral sweep trace (multi-wavelength mode)
+  traces.push({
+    type: 'scatter3d', mode: 'lines+markers', name: 'spectral',
+    x: [0], y: [0], z: [0],
+    line: { color: '#a855f7', width: 2 },
+    marker: { color: [], colorscale: 'Viridis', size: 2, showscale: false, cmin: 400, cmax: 800 },
+    hoverinfo: 'none', showlegend: false, visible: false
+  });
+  // Layer state points
+  traces.push({
+    type: 'scatter3d', mode: 'markers', name: 'layers',
+    x: [], y: [], z: [],
+    marker: { color: '#d97706', size: 2.5, symbol: 'diamond' },
+    hoverinfo: 'none', showlegend: false
+  });
+
+  const layout = {
+    scene: {
+      xaxis: { range: [-1.55, 1.55], showgrid: false, zeroline: false, showticklabels: false, title: '' },
+      yaxis: { range: [-1.55, 1.55], showgrid: false, zeroline: false, showticklabels: false, title: '' },
+      zaxis: { range: [-1.55, 1.55], showgrid: false, zeroline: false, showticklabels: false, title: '' },
+      bgcolor: '#f1f5f9',
+      camera: { eye: { x: 1.3, y: 1.3, z: 1.1 }, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: 0 } }
+    },
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    paper_bgcolor: '#f1f5f9',
+    showlegend: false,
+    dragmode: 'orbit'
+  };
+
+  Plotly.newPlot('plot3d', traces, layout, { displayModeBar: false, responsive: true });
+}
+
+function setView(view) {
+  const cfgs = {
+    main: { eye: { x: 1.3, y: 1.3, z: 1.1 }, up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: 0 } },
+    side: { eye: { x: 0, y: 2.2, z: 0 },   up: { x: 0, y: 0, z: 1 }, center: { x: 0, y: 0, z: 0 } },
+    top:  { eye: { x: 0, y: 0, z: 2.2 },   up: { x: 0, y: 1, z: 0 }, center: { x: 0, y: 0, z: 0 } }
+  };
+  const c = cfgs[view];
+  Plotly.relayout('plot3d', {
+    'scene.camera.eye': c.eye,
+    'scene.camera.up': c.up,
+    'scene.camera.center': c.center
+  });
+}
+
+function updatePoincare(result) {
+  const plotDiv = document.getElementById('plot3d');
+  const nTraces = plotDiv.data.length;
+
+  // Input point
+  Plotly.restyle('plot3d', {
+    x: [[result.S_in[1]]], y: [[result.S_in[2]]], z: [[result.S_in[3]]]
+  }, [nTraces - 5]);
+
+  // Output point
+  Plotly.restyle('plot3d', {
+    x: [[result.S_out[1]]], y: [[result.S_out[2]]], z: [[result.S_out[3]]]
+  }, [nTraces - 4]);
+
+  // Trajectory
+  const tx = result.trajPoints.map(p => p[0]);
+  const ty = result.trajPoints.map(p => p[1]);
+  const tz = result.trajPoints.map(p => p[2]);
+  Plotly.restyle('plot3d', { x: [tx], y: [ty], z: [tz] }, [nTraces - 3]);
+
+  // Spectral sweep
+  if (result.wlSweep && result.wlSweep.length > 0) {
+    const sx = result.wlSweep.map(p => p[0]);
+    const sy = result.wlSweep.map(p => p[1]);
+    const sz = result.wlSweep.map(p => p[2]);
+    Plotly.restyle('plot3d', {
+      x: [sx], y: [sy], z: [sz],
+      'marker.color': [result.wlValues],
+      'marker.cmin': Math.min(...result.wlValues),
+      'marker.cmax': Math.max(...result.wlValues),
+      visible: true
+    }, [nTraces - 2]);
+  } else {
+    Plotly.restyle('plot3d', { x: [[0]], y: [[0]], z: [[0]], visible: false }, [nTraces - 2]);
+  }
+
+  // Layer states
+  const lx = result.layerStates.map(p => p[0]);
+  const ly = result.layerStates.map(p => p[1]);
+  const lz = result.layerStates.map(p => p[2]);
+  Plotly.restyle('plot3d', { x: [lx], y: [ly], z: [lz] }, [nTraces - 1]);
+}
+
+// ============================================================
+// Ellipse Canvas
+// ============================================================
+function drawEllipse(psiDeg, chiDeg) {
+  const canvas = document.getElementById('ellipse-canvas');
+  const ctx = canvas.getContext('2d');
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const R = 85;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const chiRad = chiDeg * Math.PI / 180;
+  const a = Math.cos(chiRad);
+  const b = Math.sin(chiRad);
+  const psiRad = psiDeg * Math.PI / 180;
+
+  const absChi = Math.abs(chiDeg);
+  let color;
+  if (absChi > 40) {
+    color = '#f59e0b';
+  } else {
+    color = '#3b82f6';
+  }
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-psiRad);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, R * a, R * Math.abs(b), 0, 0, 2 * Math.PI);
+  ctx.stroke();
+  ctx.restore();
+
+  // Draw direction indicator if not circular
+  if (absChi < 43) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-psiRad);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(R * a, 0);
+    ctx.lineTo(R * a + 12, 0);
+    ctx.moveTo(R * a + 8, -3);
+    ctx.lineTo(R * a + 12, 0);
+    ctx.lineTo(R * a + 8, 3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+// ============================================================
+// Update Stokes bars
+// ============================================================
+function updateStokesBars(S_out) {
+  for (let i = 1; i <= 3; i++) {
+    const v = S_out[i];
+    const barEl = document.getElementById('bar-s' + i);
+    const valEl = document.getElementById('val-s' + i);
+    const width = Math.min(100, Math.abs(v) * 100);
+    if (v >= 0) {
+      barEl.style.left = '50%';
+      barEl.style.width = width + '%';
+    } else {
+      barEl.style.left = (50 - width) + '%';
+      barEl.style.width = width + '%';
+    }
+    valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(3);
+  }
+}
+
+// ============================================================
+// Update Mueller matrix
+// ============================================================
+function updateMueller(M) {
+  const grid = document.getElementById('mueller-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 4; j++) {
+      const span = document.createElement('span');
+      span.textContent = M[i][j].toFixed(2);
+      span.className = i === j ? 'diag' : 'off';
+      grid.appendChild(span);
+    }
+  }
+}
+
+// ============================================================
+// Update Jones
+// ============================================================
+function updateJones(jv) {
+  const div = document.getElementById('jones-display');
+  const ExAbs = jv.Ex;
+  let eyHtml;
+  if (Math.abs(jv.Ey.re) < 1e-6 && Math.abs(jv.Ey.im) < 1e-6) {
+    eyHtml = '<span class="ey">Ey = 0</span>';
+  } else {
+    const absEy = Math.sqrt(jv.Ey.re * jv.Ey.re + jv.Ey.im * jv.Ey.im);
+    const argEy = Math.atan2(jv.Ey.im, jv.Ey.re) * 180 / Math.PI;
+    eyHtml = `<span class="ey">Ey = ${absEy.toFixed(3)} ∠${argEy.toFixed(1)}°</span>`;
+  }
+  div.innerHTML = `<span class="ex">Ex = ${ExAbs.toFixed(3)}</span><br>${eyHtml}`;
+}
+
+// ============================================================
+// Update top bar
+// ============================================================
+function updateTopBar(result) {
+  if (state.wlMode === 'multi') {
+    document.getElementById('p-lambda').textContent = state.wlMin + '–' + state.wlMax + ' nm';
+  } else {
+    document.getElementById('p-lambda').textContent = state.lambdaNm + ' nm';
+  }
+  document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + '°';
+  document.getElementById('p-nlayers').textContent = state.layers.length;
+  document.getElementById('p-poldeg').textContent = result.polDeg.toFixed(4);
+  document.getElementById('p-mode').textContent =
+    (state.thetaInc < 0.01 ? '垂直' : '斜入射') + ' | ' + (state.modelSimplified ? '简化' : 'Berreman');
+}
+
+// ============================================================
+// Ellipse label
+// ============================================================
+function updateEllipseLabel(label) {
+  const el = document.getElementById('ellipse-label');
+  el.textContent = label;
+  el.className = 'ellipse-label ' + (label === 'RCP' || label === 'LCP' ? label.toLowerCase() :
+    label === 'linear' ? 'linear' : 'elliptical');
+}
+
+// ============================================================
+// Master refresh
+// ============================================================
+let poincareBuilt = false;
+let refreshTimer = null;
+
+function refreshAll() {
+  let result;
+
+  if (state.wlMode === 'multi') {
+    // Multi-wavelength sweep
+    const wls = [];
+    for (let w = state.wlMin; w <= state.wlMax + 0.001; w += state.wlStep) wls.push(w);
+    if (wls.length === 0) wls.push(state.wlMin);
+
+    const sweepPts = [];
+    const sweepWls = [];
+    let midResult = null;
+    const midIdx = Math.floor(wls.length / 2);
+
+    for (let i = 0; i < wls.length; i++) {
+      const s = { ...state, lambdaNm: wls[i] };
+      // deep clone layers to avoid shared ref issues
+      s.layers = state.layers.map(l => ({ ...l }));
+      const r = computeOutput(s);
+      sweepPts.push([r.S_out[1], r.S_out[2], r.S_out[3]]);
+      sweepWls.push(wls[i]);
+      if (i === midIdx) midResult = r;
+    }
+    if (!midResult) midResult = computeOutput(state);
+    result = midResult;
+    result.wlSweep = sweepPts;
+    result.wlValues = sweepWls;
+  } else {
+    result = computeOutput(state);
+    result.wlSweep = null;
+    result.wlValues = null;
+  }
+
+  if (!poincareBuilt) {
+    buildPoincareBase();
+    poincareBuilt = true;
+  }
+  updatePoincare(result);
+
+  drawEllipse(result.psiEll, result.chiEll);
+  updateEllipseLabel(result.ellLabel);
+  document.getElementById('ell-psi').textContent = result.psiEll.toFixed(1) + '°';
+  document.getElementById('ell-chi').textContent = result.chiEll.toFixed(1) + '°';
+
+  updateStokesBars(result.S_out);
+  updateMueller(result.M_total);
+  updateJones({ Ex: result.jonesEx, Ey: result.jonesEy });
+  updateTopBar(result);
+}
+
+/** Debounced refresh for slider drag (avoids excessive Plotly updates) */
+function refreshDebounced() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(refreshAll, 30);
+}
+
+// ============================================================
+// Window resize handler
+// ============================================================
+window.addEventListener('resize', () => {
+  if (poincareBuilt) Plotly.Plots.resize('plot3d');
+});
+
+// ============================================================
+// Initialize
+// ============================================================
+renderLayerTable();
+// mark default preset L45 as active
+document.querySelectorAll('.preset-btn').forEach(b => { if (b.textContent.trim() === 'L 45°') b.classList.add('active'); });
+refreshAll();
+</script>
+</body>
+</html>
