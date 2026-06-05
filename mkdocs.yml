@@ -51,4 +51,5 @@ nav:
   - 文档:
     - 使用说明: docs/guide.md
     - API参考: docs/api.md
+  - 意见反馈: feedback.md
   - 关于: about.md
