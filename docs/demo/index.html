@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -6,7 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Polarization PoincarÃ© â Web</title>
+<title>Polarization Poincaré — Web</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script>
 /**
@@ -160,7 +160,7 @@ function slerp(p, q, n) {
     if (theta < 1e-10) {
         return Array.from({length: n}, () => [...p]);
     }
-    // Nearly antipodal â use a perpendicular vector as midpoint (matches Python)
+    // Nearly antipodal — use a perpendicular vector as midpoint (matches Python)
     if (theta > Math.PI - 1e-10) {
         let mid = [-p[1], p[0], 0.0];
         let nm = Math.sqrt(mid[0]*mid[0] + mid[1]*mid[1] + mid[2]*mid[2]);
@@ -446,7 +446,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .layer-btns button:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
 
-/* ---- Center PoincarÃ© ---- */
+/* ---- Center Poincaré ---- */
 .poincare-area {
   flex: 1;
   display: flex;
@@ -576,11 +576,11 @@ input[type="range"]::-webkit-slider-thumb {
 
 <!-- Top Bar -->
 <header class="top-bar">
-  <div class="param"><span class="label">Î»</span><span class="value" id="p-lambda">633 nm</span></div>
-  <div class="param"><span class="label">Î¸</span><span class="value" id="p-theta">0.0Â°</span></div>
-  <div class="param"><span class="label">å±æ°</span><span class="value" id="p-nlayers">1</span></div>
+  <div class="param"><span class="label">λ</span><span class="value" id="p-lambda">633 nm</span></div>
+  <div class="param"><span class="label">θ</span><span class="value" id="p-theta">0.0°</span></div>
+  <div class="param"><span class="label">层数</span><span class="value" id="p-nlayers">1</span></div>
   <div class="param"><span class="label">DoP</span><span class="value" id="p-poldeg">1.0000</span></div>
-  <div class="param"><span class="label">æ¨¡å¼</span><span class="value" id="p-mode">åç´ | ç®å</span></div>
+  <div class="param"><span class="label">模式</span><span class="value" id="p-mode">垂直 | 简化</span></div>
 </header>
 
 <!-- Main Content -->
@@ -591,33 +591,33 @@ input[type="range"]::-webkit-slider-thumb {
 
   <!-- Mode -->
   <div class="panel">
-    <div class="panel-title">å¥å°æ¨¡å¼</div>
+    <div class="panel-title">入射模式</div>
     <div class="mode-group">
-      <button class="mode-btn active" id="btn-normal" onclick="setModeNormal()">åç´å¥å° Î¸=0Â°</button>
-      <button class="mode-btn" id="btn-oblique" disabled>æå¥å° [å³å°å¼æ¾]</button>
+      <button class="mode-btn active" id="btn-normal" onclick="setModeNormal()">垂直入射 θ=0°</button>
+      <button class="mode-btn" id="btn-oblique" disabled>斜入射 [即将开放]</button>
     </div>
   </div>
 
   <!-- Model -->
   <div class="panel">
-    <div class="panel-title">è®¡ç®æ¨¡å</div>
+    <div class="panel-title">计算模型</div>
     <div class="mode-group">
-      <button class="mode-btn active" id="btn-simplified" onclick="setModelSimplified()">ç®åæ¨¡å</button>
-      <button class="mode-btn" id="btn-berreman" disabled>Berreman 4Ã4 [å³å°å¼æ¾]</button>
+      <button class="mode-btn active" id="btn-simplified" onclick="setModelSimplified()">简化模型</button>
+      <button class="mode-btn" id="btn-berreman" disabled>Berreman 4×4 [即将开放]</button>
     </div>
   </div>
 
   <!-- Polarization Sliders -->
   <div class="panel">
-    <div class="panel-title">å¥å°åæ¯</div>
+    <div class="panel-title">入射偏振</div>
     <div class="mode-group" style="margin-bottom:6px">
-      <button class="mode-btn active" id="btn-wl-single" onclick="setWlMode('single')">åæ³¢é¿</button>
-      <button class="mode-btn" id="btn-wl-multi" onclick="setWlMode('multi')">å¤æ³¢é¿</button>
+      <button class="mode-btn active" id="btn-wl-single" onclick="setWlMode('single')">单波长</button>
+      <button class="mode-btn" id="btn-wl-multi" onclick="setWlMode('multi')">多波长</button>
     </div>
     <!-- Single wavelength -->
     <div id="wl-single-group">
       <div class="slider-group">
-        <div class="slider-label"><span class="name">Î» æ³¢é¿ (nm)</span></div>
+        <div class="slider-label"><span class="name">λ 波长 (nm)</span></div>
         <input type="number" id="in-lambda" value="633" min="100" max="10000" step="1"
                style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;padding:3px 6px;text-align:center"
                onchange="onLambdaChange()">
@@ -627,38 +627,38 @@ input[type="range"]::-webkit-slider-thumb {
     <div id="wl-multi-group" style="display:none">
       <div style="display:flex;gap:4px;margin-bottom:4px">
         <div style="flex:1">
-          <div class="slider-label"><span class="name" style="font-size:9px">Î» min (nm)</span></div>
+          <div class="slider-label"><span class="name" style="font-size:9px">λ min (nm)</span></div>
           <input type="number" id="in-wl-min" value="400" min="100" max="10000" step="1"
                  style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
                  onchange="onWlSweepChange()">
         </div>
         <div style="flex:1">
-          <div class="slider-label"><span class="name" style="font-size:9px">Î» max (nm)</span></div>
+          <div class="slider-label"><span class="name" style="font-size:9px">λ max (nm)</span></div>
           <input type="number" id="in-wl-max" value="800" min="100" max="10000" step="1"
                  style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
                  onchange="onWlSweepChange()">
         </div>
       </div>
       <div class="slider-group">
-        <div class="slider-label"><span class="name">æ­¥é¿ (nm)</span></div>
+        <div class="slider-label"><span class="name">步长 (nm)</span></div>
         <input type="number" id="in-wl-step" value="50" min="1" max="1000" step="1"
                style="width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
                onchange="onWlSweepChange()">
       </div>
     </div>
     <div class="slider-group">
-      <div class="slider-label"><span class="name">Ï (æ¹ä½è§)</span><span class="val" id="v-psi">45.0Â°</span></div>
+      <div class="slider-label"><span class="name">ψ (方位角)</span><span class="val" id="v-psi">45.0°</span></div>
       <input type="range" id="sl-psi" min="0" max="180" value="45" step="0.5" oninput="onPsiChange()">
     </div>
     <div class="slider-group">
-      <div class="slider-label"><span class="name">Ï (æ¤­åç)</span><span class="val" id="v-chi">0.0Â°</span></div>
+      <div class="slider-label"><span class="name">χ (椭圆率)</span><span class="val" id="v-chi">0.0°</span></div>
       <input type="range" id="sl-chi" min="-45" max="45" value="0" step="0.5" oninput="onChiChange()">
     </div>
     <div class="preset-grid">
-      <button class="preset-btn" onclick="setPreset(0, 0)">L 0Â°</button>
-      <button class="preset-btn" onclick="setPreset(45, 0)">L 45Â°</button>
-      <button class="preset-btn" onclick="setPreset(90, 0)">L 90Â°</button>
-      <button class="preset-btn" onclick="setPreset(135, 0)">L 135Â°</button>
+      <button class="preset-btn" onclick="setPreset(0, 0)">L 0°</button>
+      <button class="preset-btn" onclick="setPreset(45, 0)">L 45°</button>
+      <button class="preset-btn" onclick="setPreset(90, 0)">L 90°</button>
+      <button class="preset-btn" onclick="setPreset(135, 0)">L 135°</button>
       <button class="preset-btn" onclick="setPreset(45, 45)">LCP</button>
       <button class="preset-btn" onclick="setPreset(45, -45)">RCP</button>
     </div>
@@ -666,12 +666,12 @@ input[type="range"]::-webkit-slider-thumb {
 
 </aside>
 
-<!-- Center: PoincarÃ© Sphere -->
+<!-- Center: Poincaré Sphere -->
 <section class="poincare-area">
   <div class="view-btns">
-    <button class="view-btn" onclick="setView('main')">ä¸»è§è§</button>
-    <button class="view-btn" onclick="setView('side')">ä¾§è§è§</button>
-    <button class="view-btn" onclick="setView('top')">ä¿¯è§è§</button>
+    <button class="view-btn" onclick="setView('main')">主视角</button>
+    <button class="view-btn" onclick="setView('side')">侧视角</button>
+    <button class="view-btn" onclick="setView('top')">俯视角</button>
   </div>
   <div id="plot3d"></div>
 </section>
@@ -681,20 +681,20 @@ input[type="range"]::-webkit-slider-thumb {
 
   <!-- Ellipse -->
   <div class="panel">
-    <div class="panel-title">è¾åºåæ¯æ</div>
+    <div class="panel-title">输出偏振态</div>
     <div class="ellipse-container">
       <canvas id="ellipse-canvas" width="200" height="200"></canvas>
       <div class="ellipse-label linear" id="ellipse-label">linear</div>
       <div style="margin-top:4px;font-size:10px;color:var(--text-secondary)">
-        Ï = <span id="ell-psi" style="color:var(--accent-cyan)">45.0Â°</span>
-        &nbsp;Ï = <span id="ell-chi" style="color:var(--accent-cyan)">0.0Â°</span>
+        ψ = <span id="ell-psi" style="color:var(--accent-cyan)">45.0°</span>
+        &nbsp;χ = <span id="ell-chi" style="color:var(--accent-cyan)">0.0°</span>
       </div>
     </div>
   </div>
 
   <!-- Stokes Parameters -->
   <div class="panel">
-    <div class="panel-title">Stokes åæ°</div>
+    <div class="panel-title">Stokes 参数</div>
     <div class="stokes-bars" id="stokes-bars">
       <div class="stokes-row">
         <span class="label">S1</span>
@@ -716,13 +716,13 @@ input[type="range"]::-webkit-slider-thumb {
 
   <!-- Mueller Matrix -->
   <div class="panel">
-    <div class="panel-title">Mueller ç©éµ</div>
+    <div class="panel-title">Mueller 矩阵</div>
     <div class="mueller-grid" id="mueller-grid"></div>
   </div>
 
   <!-- Jones Vector -->
   <div class="panel">
-    <div class="panel-title">Jones ç¢é</div>
+    <div class="panel-title">Jones 矢量</div>
     <div class="jones-display" id="jones-display"></div>
   </div>
 
@@ -732,23 +732,23 @@ input[type="range"]::-webkit-slider-thumb {
 
 <!-- Bottom: Layer Table -->
 <section class="bottom-panel">
-  <div class="panel-title" style="padding:0 12px 8px">èå±å æ </div>
+  <div class="panel-title" style="padding:0 12px 8px">膜层堆栈</div>
   <div style="display:flex;gap:12px;align-items:flex-start">
     <div class="layer-table-wrap" style="flex:1">
       <table class="layer-table" id="layer-table">
         <thead>
           <tr>
             <th>Name</th><th>Type</th><th>n_o</th><th>n_e</th><th>n_z</th>
-            <th>Î¸_fast(Â°)</th><th>Î¸_xz(Â°)*</th><th>d (nm)</th>
+            <th>θ_fast(°)</th><th>θ_xz(°)*</th><th>d (nm)</th>
           </tr>
         </thead>
         <tbody id="layer-tbody"></tbody>
       </table>
     </div>
     <div class="layer-btns" style="flex-direction:column;width:80px">
-      <button onclick="addLayer()">+ æ·»å </button>
-      <button onclick="removeLayer()">â å é¤</button>
-      <button onclick="resetLayers()">æ¢å¤é»è®¤</button>
+      <button onclick="addLayer()">+ 添加</button>
+      <button onclick="removeLayer()">− 删除</button>
+      <button onclick="resetLayers()">恢复默认</button>
     </div>
   </div>
 </section>
@@ -791,14 +791,14 @@ function setModelSimplified() {
 // ============================================================
 function onPsiChange() {
   state.psiPol = parseFloat(document.getElementById('sl-psi').value);
-  document.getElementById('v-psi').textContent = state.psiPol.toFixed(1) + 'Â°';
+  document.getElementById('v-psi').textContent = state.psiPol.toFixed(1) + '°';
   clearPresets();
   refreshDebounced();
 }
 
 function onChiChange() {
   state.chiPol = parseFloat(document.getElementById('sl-chi').value);
-  document.getElementById('v-chi').textContent = state.chiPol.toFixed(1) + 'Â°';
+  document.getElementById('v-chi').textContent = state.chiPol.toFixed(1) + '°';
   clearPresets();
   refreshDebounced();
 }
@@ -836,13 +836,13 @@ function setPreset(psi, chi) {
   state.chiPol = chi;
   document.getElementById('sl-psi').value = psi;
   document.getElementById('sl-chi').value = chi;
-  document.getElementById('v-psi').textContent = psi.toFixed(1) + 'Â°';
-  document.getElementById('v-chi').textContent = chi.toFixed(1) + 'Â°';
+  document.getElementById('v-psi').textContent = psi.toFixed(1) + '°';
+  document.getElementById('v-chi').textContent = chi.toFixed(1) + '°';
   // highlight matching preset button
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   const btns = document.querySelectorAll('.preset-btn');
   for (const b of btns) {
-     const m = b.textContent.match(/L\s*(\d+)Â°/);
+     const m = b.textContent.match(/L\s*(\d+)°/);
      if (m && parseFloat(m[1]) === psi && chi === 0) { b.classList.add('active'); refreshAll(); return; }
      if (b.textContent === 'LCP' && psi === 45 && chi === 45) { b.classList.add('active'); refreshAll(); return; }
      if (b.textContent === 'RCP' && psi === 45 && chi === -45) { b.classList.add('active'); refreshAll(); return; }
@@ -858,7 +858,7 @@ function clearPresets() {
 // Layer table
 // ============================================================
 const typeOptions = ['iso', 'uniaxial', 'biaxial'];
-const typeLabels = ['åååæ§ä½', 'åè½´åæå°', 'åè½´æå°ææ'];
+const typeLabels = ['各向同性体', '单轴双折射', '双轴折射材料'];
 
 function renderLayerTable() {
   const tbody = document.getElementById('layer-tbody');
@@ -936,7 +936,7 @@ function resetLayers() {
 }
 
 // ============================================================
-// PoincarÃ© sphere (Plotly.js)
+// Poincaré sphere (Plotly.js)
 // ============================================================
 function buildPoincareBase() {
   // Sphere wireframe
@@ -1000,8 +1000,8 @@ function buildPoincareBase() {
 
   // Coordinate axes
   const axisLen = 1.25;
-  [[1, 0, 0, 'S1 0Â°', '#334155'], [-1, 0, 0, 'S1 90Â°', '#334155'],
-   [0, 1, 0, 'S2 +45Â°', '#334155'], [0, -1, 0, 'S2 â45Â°', '#334155'],
+  [[1, 0, 0, 'S1 0°', '#334155'], [-1, 0, 0, 'S1 90°', '#334155'],
+   [0, 1, 0, 'S2 +45°', '#334155'], [0, -1, 0, 'S2 −45°', '#334155'],
    [0, 0, 1, 'RCP', '#b45309'], [0, 0, -1, 'LCP', '#b45309']]
     .forEach(([ax, ay, az, label, color]) => {
       traces.push({
@@ -1238,7 +1238,7 @@ function updateJones(jv) {
   } else {
     const absEy = Math.sqrt(jv.Ey.re * jv.Ey.re + jv.Ey.im * jv.Ey.im);
     const argEy = Math.atan2(jv.Ey.im, jv.Ey.re) * 180 / Math.PI;
-    eyHtml = `<span class="ey">Ey = ${absEy.toFixed(3)} â ${argEy.toFixed(1)}Â°</span>`;
+    eyHtml = `<span class="ey">Ey = ${absEy.toFixed(3)} ∠${argEy.toFixed(1)}°</span>`;
   }
   div.innerHTML = `<span class="ex">Ex = ${ExAbs.toFixed(3)}</span><br>${eyHtml}`;
 }
@@ -1248,15 +1248,15 @@ function updateJones(jv) {
 // ============================================================
 function updateTopBar(result) {
   if (state.wlMode === 'multi') {
-    document.getElementById('p-lambda').textContent = state.wlMin + 'â' + state.wlMax + ' nm';
+    document.getElementById('p-lambda').textContent = state.wlMin + '–' + state.wlMax + ' nm';
   } else {
     document.getElementById('p-lambda').textContent = state.lambdaNm + ' nm';
   }
-  document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + 'Â°';
+  document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + '°';
   document.getElementById('p-nlayers').textContent = state.layers.length;
   document.getElementById('p-poldeg').textContent = result.polDeg.toFixed(4);
   document.getElementById('p-mode').textContent =
-    (state.thetaInc < 0.01 ? 'åç´' : 'æå¥å°') + ' | ' + (state.modelSimplified ? 'ç®å' : 'Berreman');
+    (state.thetaInc < 0.01 ? '垂直' : '斜入射') + ' | ' + (state.modelSimplified ? '简化' : 'Berreman');
 }
 
 // ============================================================
@@ -1316,8 +1316,8 @@ function refreshAll() {
 
   drawEllipse(result.psiEll, result.chiEll);
   updateEllipseLabel(result.ellLabel);
-  document.getElementById('ell-psi').textContent = result.psiEll.toFixed(1) + 'Â°';
-  document.getElementById('ell-chi').textContent = result.chiEll.toFixed(1) + 'Â°';
+  document.getElementById('ell-psi').textContent = result.psiEll.toFixed(1) + '°';
+  document.getElementById('ell-chi').textContent = result.chiEll.toFixed(1) + '°';
 
   updateStokesBars(result.S_out);
   updateMueller(result.M_total);
@@ -1343,7 +1343,7 @@ window.addEventListener('resize', () => {
 // ============================================================
 renderLayerTable();
 // mark default preset L45 as active
-document.querySelectorAll('.preset-btn').forEach(b => { if (b.textContent.trim() === 'L 45Â°') b.classList.add('active'); });
+document.querySelectorAll('.preset-btn').forEach(b => { if (b.textContent.trim() === 'L 45°') b.classList.add('active'); });
 refreshAll();
 </script>
 </body>
