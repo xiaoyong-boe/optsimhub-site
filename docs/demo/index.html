@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Polarization Poincaré — Web</title>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@2.35.2/dist/plotly.min.js"></script>
 <script>
 /**
  * Polarization Physics Module
@@ -276,6 +276,33 @@ body {
 }
 .left-panel::-webkit-scrollbar { width: 4px; }
 .left-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.tab-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+}
+.tab-btn:hover:not(.active) {
+  background: var(--bg-hover);
+}
 
 .panel {
   background: var(--bg-elevated);
@@ -589,6 +616,15 @@ input[type="range"]::-webkit-slider-thumb {
 <!-- Left Panel -->
 <aside class="left-panel">
 
+  <!-- Header -->
+  <div class="tab-bar" style="gap:12px">
+    <span class="active">偏振分析</span>
+    <a id="hops-link" href="hops.html" style="color:#3b82f6;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #3b82f6;border-radius:4px">HOPS / HyOPS →</a>
+  </div>
+
+  <!-- === Standard Tab Content === -->
+  <div id="std-tab-content">
+
   <!-- Mode -->
   <div class="panel">
     <div class="panel-title">入射模式</div>
@@ -663,6 +699,8 @@ input[type="range"]::-webkit-slider-thumb {
       <button class="preset-btn" onclick="setPreset(45, -45)">RCP</button>
     </div>
   </div>
+
+  </div><!-- /std-tab-content -->
 
 </aside>
 
@@ -1000,26 +1038,29 @@ function buildPoincareBase() {
 
   // Coordinate axes
   const axisLen = 1.25;
-  [[1, 0, 0, 'S1 0°', '#334155'], [-1, 0, 0, 'S1 90°', '#334155'],
-   [0, 1, 0, 'S2 +45°', '#334155'], [0, -1, 0, 'S2 −45°', '#334155'],
-   [0, 0, 1, 'RCP', '#b45309'], [0, 0, -1, 'LCP', '#b45309']]
-    .forEach(([ax, ay, az, label, color]) => {
+  const axes = [
+    [1, 0, 0, 'S1 0°', '#334155'], [-1, 0, 0, 'S1 90°', '#334155'],
+    [0, 1, 0, 'S2 +45°', '#334155'], [0, -1, 0, 'S2 −45°', '#334155'],
+    [0, 0, 1, 'RCP', '#b45309'], [0, 0, -1, 'LCP', '#b45309']
+  ];
+
+  axes.forEach(([ax, ay, az, label, color]) => {
+    traces.push({
+      type: 'scatter3d', mode: 'lines',
+      x: [0, ax * axisLen], y: [0, ay * axisLen], z: [0, az * axisLen],
+      line: { color, width: 1.5 },
+      hoverinfo: 'none', showlegend: false
+    });
+    if (label) {
       traces.push({
-        type: 'scatter3d', mode: 'lines',
-        x: [0, ax * axisLen], y: [0, ay * axisLen], z: [0, az * axisLen],
-        line: { color, width: 1.5 },
+        type: 'scatter3d', mode: 'text',
+        x: [ax * (axisLen + 0.15)], y: [ay * (axisLen + 0.15)], z: [az * (axisLen + 0.15)],
+        text: [label],
+        textfont: { color, size: 13, family: 'Arial, sans-serif' },
         hoverinfo: 'none', showlegend: false
       });
-      if (label) {
-        traces.push({
-          type: 'scatter3d', mode: 'text',
-          x: [ax * (axisLen + 0.15)], y: [ay * (axisLen + 0.15)], z: [az * (axisLen + 0.15)],
-          text: [label],
-          textfont: { color, size: 13, family: 'Arial, sans-serif' },
-          hoverinfo: 'none', showlegend: false
-        });
-      }
-    });
+    }
+  });
 
   // Data traces (will be updated)
   traces.push({
@@ -1076,7 +1117,7 @@ function buildPoincareBase() {
     dragmode: 'orbit'
   };
 
-  Plotly.newPlot('plot3d', traces, layout, { displayModeBar: false, responsive: true });
+  return Plotly.newPlot('plot3d', traces, layout, { displayModeBar: false, responsive: true });
 }
 
 function setView(view) {
@@ -1249,11 +1290,13 @@ function updateJones(jv) {
 function updateTopBar(result) {
   if (state.wlMode === 'multi') {
     document.getElementById('p-lambda').textContent = state.wlMin + '–' + state.wlMax + ' nm';
+    document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + '°';
+    document.getElementById('p-nlayers').textContent = state.layers.length;
   } else {
     document.getElementById('p-lambda').textContent = state.lambdaNm + ' nm';
+    document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + '°';
+    document.getElementById('p-nlayers').textContent = state.layers.length;
   }
-  document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + '°';
-  document.getElementById('p-nlayers').textContent = state.layers.length;
   document.getElementById('p-poldeg').textContent = result.polDeg.toFixed(4);
   document.getElementById('p-mode').textContent =
     (state.thetaInc < 0.01 ? '垂直' : '斜入射') + ' | ' + (state.modelSimplified ? '简化' : 'Berreman');
@@ -1291,7 +1334,6 @@ function refreshAll() {
 
     for (let i = 0; i < wls.length; i++) {
       const s = { ...state, lambdaNm: wls[i] };
-      // deep clone layers to avoid shared ref issues
       s.layers = state.layers.map(l => ({ ...l }));
       const r = computeOutput(s);
       sweepPts.push([r.S_out[1], r.S_out[2], r.S_out[3]]);
@@ -1308,21 +1350,36 @@ function refreshAll() {
     result.wlValues = null;
   }
 
-  if (!poincareBuilt) {
-    buildPoincareBase();
-    poincareBuilt = true;
+  function updateResultUI() {
+    updatePoincare(result);
+    drawEllipse(result.psiEll, result.chiEll);
+    updateEllipseLabel(result.ellLabel);
+    document.getElementById('ell-psi').textContent = result.psiEll.toFixed(1) + '°';
+    document.getElementById('ell-chi').textContent = result.chiEll.toFixed(1) + '°';
+    updateStokesBars(result.S_out);
+    updateMueller(result.M_total);
+    updateJones({ Ex: result.jonesEx, Ey: result.jonesEy });
+    updateTopBar(result);
+    // update HOPS link with current output polarization (θ, φ)
+    const S1 = result.S_out[1], S2 = result.S_out[2], S3 = result.S_out[3];
+    const norm = Math.sqrt(S1*S1+S2*S2+S3*S3)+1e-15;
+    const S1n=S1/norm, S2n=S2/norm, S3n=S3/norm;
+    const thetaPol = Math.acos(Math.max(-1,Math.min(1,S3n))) * 180/Math.PI;
+    let phiPol = Math.atan2(S2n, S1n) * 180/Math.PI;
+    if (phiPol < 0) phiPol += 360;
+    const hopsA = document.getElementById('hops-link');
+    hopsA.href = `hops.html?theta=${thetaPol.toFixed(1)}&phi=${phiPol.toFixed(1)}`;
+    hopsA.title = `θ=${thetaPol.toFixed(1)}°, φ=${phiPol.toFixed(1)}° — 点击将当前偏振态传入HOPS`;
   }
-  updatePoincare(result);
 
-  drawEllipse(result.psiEll, result.chiEll);
-  updateEllipseLabel(result.ellLabel);
-  document.getElementById('ell-psi').textContent = result.psiEll.toFixed(1) + '°';
-  document.getElementById('ell-chi').textContent = result.chiEll.toFixed(1) + '°';
-
-  updateStokesBars(result.S_out);
-  updateMueller(result.M_total);
-  updateJones({ Ex: result.jonesEx, Ey: result.jonesEy });
-  updateTopBar(result);
+  if (!poincareBuilt) {
+    buildPoincareBase().then(() => {
+      poincareBuilt = true;
+      updateResultUI();
+    });
+  } else {
+    updateResultUI();
+  }
 }
 
 /** Debounced refresh for slider drag (avoids excessive Plotly updates) */
