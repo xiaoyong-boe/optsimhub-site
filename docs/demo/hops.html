@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOPS / HyOPS — Higher-Order Poincaré Sphere</title>
+<script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+<style>
+:root {
+  --bg: #f8fafc;
+  --bg-panel: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-dim: #64748b;
+  --accent: #2563eb;
+  --accent2: #d97706;
+  --green: #10b981;
+  --red: #ef4444;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Header */
+#header {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+#header h1 { font-size:16px; font-weight:600; }
+#header .sub { font-size:11px; color: var(--text-dim); }
+#header .nav a {
+  color: var(--accent); text-decoration: none;
+  font-size: 12px; margin-left: 12px;
+}
+/* Main layout: two rows */
+#main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+/* Left controls */
+#left {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+.panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.slider-group { margin-bottom: 6px; }
+.slider-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; margin-bottom: 2px;
+}
+.slider-label .name { color: var(--text-dim); }
+.slider-label .val { color: var(--accent2); font-weight: 600; }
+input[type=range] {
+  width: 100%; height: 4px;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 2px; outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+.preset-btn {
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 4px 2px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.preset-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.preset-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+/* Info cards */
+.info-row {
+  display: flex; gap: 6px;
+  font-size: 10px;
+}
+.info-card {
+  flex: 1;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.info-card .label { color: var(--text-dim); font-size: 9px; }
+.info-card .value { font-weight: 700; font-size: 13px; margin-top: 2px; }
+.sam .value { color: var(--accent2); }
+.oam .value { color: var(--green); }
+.tam .value { color: var(--accent); }
+/* Formula */
+#hops-formula {
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  word-break: break-all;
+}
+#hops-formula b { color: var(--accent2); }
+/* Right: sphere + beam */
+#right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+#sphere-area {
+  flex: 1;
+  min-height: 0;
+}
+#beam-area {
+  height: 260px;
+  flex-shrink: 0;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  position: relative;
+}
+#beam-plot {
+  width: 240px; height: 240px;
+}
+#beam-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  min-width: 100px;
+}
+#beam-mode {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 11px;
+  padding: 4px 8px;
+}
+#beam-info {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-align: center;
+}
+/* State label */
+#state-label {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 4px 10px;
+  background: var(--bg-panel);
+  border-radius: 4px;
+  text-align: center;
+  color: var(--green);
+}
+/* Responsive */
+@media (max-width: 900px) {
+  #main { flex-direction: column; }
+  #left { width: 100%; flex-direction: row; flex-wrap: wrap; }
+  #beam-area { height: auto; flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>HOPS / HyOPS</h1>
+  <span class="sub">Higher-Order Poincaré Sphere</span>
+  <span style="flex:1"></span>
+  <span class="nav">
+    <a href="index.html">← 标准偏振分析</a>
+  </span>
+</div>
+
+<div id="main">
+  <!-- ============ LEFT CONTROLS ============ -->
+  <div id="left">
+
+    <div class="panel">
+      <div class="panel-title">OAM 阶数 ℓ₁ / ℓ₂</div>
+      <div class="slider-group">
+        <div class="slider-label"><span class="name">ℓ₁ (RCP 分量)</span><span class="val" id="v-l1">1</span></div>
+        <input type="range" id="sl-l1" min="-10" max="10" value="1" step="1" oninput="onL1Change()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span class="name">ℓ₂ (LCP 分量)</span><span class="val" id="v-l2">-1</span></div>
+        <input type="range" id="sl-l2" min="-10" max="10" value="-1" step="1" oninput="onL2Change()">
+      </div>
+      <div style="margin-top:6px;font-size:9px;color:var(--text-dim)">快捷:</div>
+      <div class="preset-grid" style="margin-top:3px">
+        <button class="preset-btn" onclick="setL12(1,-1)">1/−1</button>
+        <button class="preset-btn" onclick="setL12(2,-2)">2/−2</button>
+        <button class="preset-btn" onclick="setL12(3,-3)">3/−3</button>
+        <button class="preset-btn" onclick="setL12(0,1)">0/1</button>
+        <button class="preset-btn" onclick="setL12(1,2)">1/2</button>
+        <button class="preset-btn" onclick="setL12(-1,1)">−1/1</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">偏振控制 θ / φ</div>
+      <div class="slider-group">
+        <div class="slider-label"><span class="name">θ (极角)</span><span class="val" id="v-theta">60.0°</span></div>
+        <input type="range" id="sl-theta" min="0" max="180" value="60" step="0.5" oninput="onThetaChange()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label"><span class="name">φ (方位角)</span><span class="val" id="v-phi">0.0°</span></div>
+        <input type="range" id="sl-phi" min="0" max="360" value="0" step="0.5" oninput="onPhiChange()">
+      </div>
+      <div style="margin-top:6px;font-size:9px;color:var(--text-dim)">快捷偏振 / 点击球面:</div>
+      <div class="preset-grid" style="margin-top:3px">
+        <button class="preset-btn" onclick="setTP(90,0)">|H⟩ ℓ</button>
+        <button class="preset-btn" onclick="setTP(90,90)">|D⟩ ℓ</button>
+        <button class="preset-btn" onclick="setTP(0,0)">|R⟩ 北极</button>
+        <button class="preset-btn" onclick="setTP(180,0)">|L⟩ 南极</button>
+        <button class="preset-btn" onclick="setTP(90,0)" title="径向偏振">径向</button>
+        <button class="preset-btn" onclick="setTP(90,90)" title="角向偏振">角向</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">物理量</div>
+      <div class="info-row">
+        <div class="info-card sam"><div class="label">SAM</div><div class="value" id="v-sam">—</div></div>
+        <div class="info-card oam"><div class="label">OAM</div><div class="value" id="v-oam">—</div></div>
+        <div class="info-card tam"><div class="label">TAM</div><div class="value" id="v-tam">—</div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">态矢量</div>
+      <div id="hops-formula">|ψ⟩ = —</div>
+    </div>
+
+    <div id="state-label">—</div>
+
+  </div>
+
+  <!-- ============ RIGHT: SPHERE + BEAM ============ -->
+  <div id="right">
+    <div id="sphere-area"></div>
+    <div id="beam-area">
+      <div id="beam-plot"></div>
+      <div id="beam-controls">
+        <div style="font-size:10px;color:var(--text-dim)">光束截面</div>
+        <select id="beam-mode" onchange="renderBeam()">
+          <option value="ex_intensity">|Ex|² 花瓣图</option>
+          <option value="total_intensity">|E|² 总光强</option>
+          <option value="phase">Phase 相位</option>
+          <option value="s1">S₁ 分布</option>
+          <option value="s2">S₂ 分布</option>
+          <option value="s3">S₃ 分布</option>
+        </select>
+        <div id="beam-info"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!--  Inline HOPSPhysics + app logic                                    -->
+<!-- ================================================================ -->
+<script>
+// ── HOPSPhysics ── (compact inline)
+const HOPSPhysics = {
+  stokesFromHops(td, pd) {
+    const t = td * Math.PI / 180, p = pd * Math.PI / 180;
+    const st = Math.sin(t), ct = Math.cos(t);
+    return [1, st * Math.cos(p), st * Math.sin(p), ct];
+  },
+  hopsAnglesFromStokes(S) {
+    const s1 = S[1], s2 = S[2], s3 = S[3];
+    const theta = Math.acos(Math.max(-1, Math.min(1, s3))) * 180 / Math.PI;
+    let phi = Math.atan2(s2, s1) * 180 / Math.PI;
+    if (phi < 0) phi += 360;
+    return { theta, phi };
+  },
+  samExpectation(td) {
+    const t = td * Math.PI / 180;
+    return Math.cos(t);
+  },
+  oamExpectation(td, l1, l2) {
+    const t = td * Math.PI / 360;
+    const c = Math.cos(t), s = Math.sin(t);
+    return c * c * l1 + s * s * l2;
+  },
+  tamExpectation(td, l1, l2) {
+    return this.samExpectation(td) + this.oamExpectation(td, l1, l2);
+  },
+  hopsStateLabel(td, pd, l1, l2) {
+    const names = [];
+    if (Math.abs(td) < 2) names.push(`|R,${l1}⟩ (北极)`);
+    else if (Math.abs(td - 180) < 2) names.push(`|L,${l2}⟩ (南极)`);
+    else if (Math.abs(td - 90) < 2 && Math.abs(pd) < 2) names.push(`径向偏振 ℓ=${l1},${l2}`);
+    else if (Math.abs(td - 90) < 2 && Math.abs(pd - 90) < 2) names.push(`角向偏振 ℓ=${l1},${l2}`);
+    else if (Math.abs(td - 90) < 2 && Math.abs(pd - 45) < 2) names.push(`|D,ℓ₁,ℓ₂⟩`);
+    else if (Math.abs(td - 90) < 2 && Math.abs(pd - 135) < 2) names.push(`|A,ℓ₁,ℓ₂⟩`);
+    if (names.length === 0) names.push(`θ=${td.toFixed(1)}° φ=${pd.toFixed(1)}°`);
+    return names.join(' · ');
+  },
+  axisLabels(l1, l2) {
+    return [
+      { x: 1.15, y: 0, z: 0, text: `|H,${l1},${l2}⟩`, color: '#ef4444' },
+      { x: -1.15, y: 0, z: 0, text: `|V,${l1},${l2}⟩`, color: '#3b82f6' },
+      { x: 0, y: 1.15, z: 0, text: `|D,${l1},${l2}⟩`, color: '#10b981' },
+      { x: 0, y: -1.15, z: 0, text: `|A,${l1},${l2}⟩`, color: '#8b5cf6' },
+      { x: 0, y: 0, z: 1.15, text: `|R,${l1}⟩`, color: '#f59e0b' },
+      { x: 0, y: 0, z: -1.15, text: `|L,${l2}⟩`, color: '#f59e0b' },
+    ];
+  },
+  // ── Beam grids ──
+  _setupGrid(xs, ys, w0, l1, l2) {
+    const Nx = xs.length, Ny = ys.length;
+    const L1r = new Float64Array(Nx*Ny), L1i = new Float64Array(Nx*Ny);
+    const L2r = new Float64Array(Nx*Ny), L2i = new Float64Array(Nx*Ny);
+    const w2 = w0*w0;
+    for (let j=0; j<Ny; j++) {
+      const y=ys[j];
+      for (let i=0; i<Nx; i++) {
+        const x=xs[i], r=Math.sqrt(x*x+y*y), phi=Math.atan2(y,x);
+        const g=Math.exp(-r*r/w2);
+        let r1=g, r2=g;
+        if (Math.abs(l1)>0) r1=g*Math.pow(r/w0,Math.abs(l1));
+        if (Math.abs(l2)>0) r2=g*Math.pow(r/w0,Math.abs(l2));
+        const k=j*Nx+i;
+        L1r[k]=r1*Math.cos(l1*phi); L1i[k]=r1*Math.sin(l1*phi);
+        L2r[k]=r2*Math.cos(l2*phi); L2i[k]=r2*Math.sin(l2*phi);
+      }
+    }
+    return {L1r,L1i,L2r,L2i,Nx,Ny};
+  },
+  exIntensity(td,pd,l1,l2,xs,ys,w0) {
+    const t=td*Math.PI/360, c=Math.cos(t), s=Math.sin(t);
+    const pr=pd*Math.PI/180, er=Math.cos(pr), ei=Math.sin(pr);
+    const g=this._setupGrid(xs,ys,w0,l1,l2);
+    const iv=1/Math.SQRT2, out=new Float64Array(g.Nx*g.Ny);
+    for (let k=0;k<g.Nx*g.Ny;k++) {
+      const Exr=c*g.L1r[k]*iv+s*(g.L2r[k]*er-g.L2i[k]*ei)*iv;
+      const Exi=c*g.L1i[k]*iv+s*(g.L2r[k]*ei+g.L2i[k]*er)*iv;
+      out[k]=Exr*Exr+Exi*Exi;
+    }
+    return {data:out,Nx:g.Nx,Ny:g.Ny};
+  },
+  totalIntensity(td,pd,l1,l2,xs,ys,w0) {
+    const t=td*Math.PI/360, c=Math.cos(t), s=Math.sin(t);
+    const pr=pd*Math.PI/180, er=Math.cos(pr), ei=Math.sin(pr);
+    const g=this._setupGrid(xs,ys,w0,l1,l2);
+    const iv=1/Math.SQRT2, out=new Float64Array(g.Nx*g.Ny);
+    for (let k=0;k<g.Nx*g.Ny;k++) {
+      const L1r=g.L1r[k],L1i=g.L1i[k],L2r=g.L2r[k],L2i=g.L2i[k];
+      const Exr=c*L1r*iv+s*(L2r*er-L2i*ei)*iv;
+      const Exi=c*L1i*iv+s*(L2r*ei+L2i*er)*iv;
+      const Eyr=c*(-L1i*iv)+s*(L2i*er+L2r*ei)*iv;
+      const Eyi=c*L1r*iv+s*(L2r*er-L2i*ei)*(-iv);
+      out[k]=Exr*Exr+Exi*Exi+Eyr*Eyr+Eyi*Eyi;
+    }
+    return {data:out,Nx:g.Nx,Ny:g.Ny};
+  },
+  phase(td,pd,l1,l2,xs,ys,w0) {
+    const t=td*Math.PI/360, c=Math.cos(t), s=Math.sin(t);
+    const pr=pd*Math.PI/180, er=Math.cos(pr), ei=Math.sin(pr);
+    const g=this._setupGrid(xs,ys,w0,l1,l2);
+    const iv=1/Math.SQRT2, out=new Float64Array(g.Nx*g.Ny);
+    for (let k=0;k<g.Nx*g.Ny;k++) {
+      const Exr=c*g.L1r[k]*iv+s*(g.L2r[k]*er-g.L2i[k]*ei)*iv;
+      const Exi=c*g.L1i[k]*iv+s*(g.L2r[k]*ei+g.L2i[k]*er)*iv;
+      out[k]=Math.atan2(Exi,Exr);
+    }
+    return {data:out,Nx:g.Nx,Ny:g.Ny};
+  },
+  _stokesCore(td,pd,l1,l2,xs,ys,w0){
+    const tro=td*Math.PI/180, pro=pd*Math.PI/180;
+    const ch=Math.cos(tro/2), sh=Math.sin(tro/2);
+    const ph_re=Math.cos(pro), ph_im=Math.sin(pro);
+    const g=this._setupGrid(xs,ys,w0,l1,l2);
+    const Rx=1/Math.SQRT2, Ry=-1/Math.SQRT2;
+    const Lx=1/Math.SQRT2, Ly=1/Math.SQRT2;
+    const {LG1_re,LG1_im,LG2_re,LG2_im,Nx,Ny}=g;
+    const Ex_re=new Float64Array(Nx*Ny), Ex_im=new Float64Array(Nx*Ny);
+    const Ey_re=new Float64Array(Nx*Ny), Ey_im=new Float64Array(Nx*Ny);
+    const S0=new Float64Array(Nx*Ny);
+    for(let i=0;i<Nx*Ny;i++){
+      const A1_re=ch*LG1_re[i], A1_im=ch*LG1_im[i];
+      const B2_re=ph_re*sh*LG2_re[i]-ph_im*sh*LG2_im[i];
+      const B2_im=ph_re*sh*LG2_im[i]+ph_im*sh*LG2_re[i];
+      Ex_re[i]=A1_re*Rx+B2_re*Lx; Ex_im[i]=A1_im*Rx+B2_im*Lx;
+      Ey_re[i]=A1_re*Ry+B2_re*Ly; Ey_im[i]=A1_im*Ry+B2_im*Ly;
+      S0[i]=Ex_re[i]*Ex_re[i]+Ex_im[i]*Ex_im[i]+Ey_re[i]*Ey_re[i]+Ey_im[i]*Ey_im[i];
+    }
+    return {Ex_re,Ex_im,Ey_re,Ey_im,S0,Nx,Ny};
+  },
+  s1Grid(td,pd,l1,l2,xs,ys,w0){
+    const {Ex_re,Ex_im,Ey_re,Ey_im,S0,Nx,Ny}=this._stokesCore(td,pd,l1,l2,xs,ys,w0);
+    const S1=new Float64Array(Nx*Ny);
+    for(let i=0;i<Nx*Ny;i++){
+      if(S0[i]>1e-15){
+        const Ix=Ex_re[i]*Ex_re[i]+Ex_im[i]*Ex_im[i];
+        const Iy=Ey_re[i]*Ey_re[i]+Ey_im[i]*Ey_im[i];
+        S1[i]=(Ix-Iy)/S0[i];
+      }
+    }
+    return {data:S1,Nx,Ny};
+  },
+  s2Grid(td,pd,l1,l2,xs,ys,w0) { return this._stokes(td,pd,l1,l2,xs,ys,w0,'s2'); },
+  s3Grid(td,pd,l1,l2,xs,ys,w0) { return this._stokes(td,pd,l1,l2,xs,ys,w0,'s3'); },
+  _stokes(td,pd,l1,l2,xs,ys,w0,cmp) {
+    const t=td*Math.PI/360, ct=Math.cos(t), st=Math.sin(t);
+    const pr=pd*Math.PI/180, er=Math.cos(pr), ei=Math.sin(pr);
+    const g=this._setupGrid(xs,ys,w0,l1,l2);
+    const iv=1/Math.SQRT2, out=new Float64Array(g.Nx*g.Ny);
+    for (let k=0;k<g.Nx*g.Ny;k++) {
+      const L1r=g.L1r[k],L1i=g.L1i[k],L2r=g.L2r[k],L2i=g.L2i[k];
+      const Exr=ct*L1r*iv+st*(L2r*er-L2i*ei)*iv;
+      const Exi=ct*L1i*iv+st*(L2r*ei+L2i*er)*iv;
+      const Eyr=ct*(-L1i*iv)+st*(L2i*er+L2r*ei)*iv;
+      const Eyi=ct*L1r*iv+st*(L2r*er-L2i*ei)*(-iv);
+      const Ix=Exr*Exr+Exi*Exi, Iy=Eyr*Eyr+Eyi*Eyi;
+      const Sxy=2*(Exr*Eyr+Exi*Eyi), Sxyi=2*(Exi*Eyr-Exr*Eyi);
+      out[k]=(cmp==='s2'?Sxy:Sxyi)/(Ix+Iy+1e-15);
+    }
+    return {data:out,Nx:g.Nx,Ny:g.Ny};
+  }
+};
+
+// ── State ──
+let l1 = 1, l2 = -1, theta = 60, phi = 0;
+let sphereInited = false, beamBuilt = false;
+
+// ── Update functions ──
+function updateVals() {
+  const sam = HOPSPhysics.samExpectation(theta);
+  const oam = HOPSPhysics.oamExpectation(theta, l1, l2);
+  const tam = HOPSPhysics.tamExpectation(theta, l1, l2);
+  document.getElementById('v-sam').textContent = sam.toFixed(3);
+  document.getElementById('v-oam').textContent = oam.toFixed(3);
+  document.getElementById('v-tam').textContent = tam.toFixed(3);
+
+  const lbl = HOPSPhysics.hopsStateLabel(theta, phi, l1, l2);
+  document.getElementById('state-label').textContent = lbl;
+
+  const th = theta * Math.PI / 360;
+  document.getElementById('hops-formula').innerHTML =
+    `|ψ⟩ = cos(<b>${th.toFixed(3)}</b>) |R,<b>${l1}</b>⟩ + e<sup>i·<b>${phi.toFixed(1)}°</b></sup> sin(<b>${th.toFixed(3)}</b>) |L,<b>${l2}</b>⟩`;
+}
+
+function buildSphere() {
+  const labels = HOPSPhysics.axisLabels(l1, l2);
+  const traces = [];
+
+  // Sphere surface
+  const u = [], v = [], w = [];
+  const su = [], sv = [], sw = [];
+  for (let ti = 0; ti <= 40; ti++) {
+    const t = Math.PI * ti / 40;
+    const st = Math.sin(t), ct = Math.cos(t);
+    const uRow = [], vRow = [], wRow = [];
+    const suRow = [], svRow = [], swRow = [];
+    for (let pi = 0; pi <= 80; pi++) {
+      const p = 2 * Math.PI * pi / 80;
+      uRow.push(st * Math.cos(p));
+      vRow.push(st * Math.sin(p));
+      wRow.push(ct);
+      suRow.push(st * Math.cos(p) * 1.001);
+      svRow.push(st * Math.sin(p) * 1.001);
+      swRow.push(ct * 1.001);
+    }
+    u.push(uRow); v.push(vRow); w.push(wRow);
+    su.push(suRow); sv.push(svRow); sw.push(swRow);
+  }
+
+  traces.push({
+    type: 'surface', x: su, y: sv, z: sw,
+    surfacecolor: u.map((r,i) => r.map((_,j) => {
+      const x=u[i][j], y=v[i][j], z=w[i][j];
+      return (z+1)/2;
+    })),
+    colorscale: [[0,'#1e3a5f'],[0.5,'#334155'],[1,'#1e3a5f']],
+    showscale: false, lighting: {diffuse:0.4,specular:0.05,ambient:0.8},
+    opacity: 0.55, hoverinfo: 'skip'
+  });
+
+  // Equator
+  const eq = [], eqy = [], eqz = [];
+  for (let pi = 0; pi <= 200; pi++) {
+    const p = 2 * Math.PI * pi / 200;
+    eq.push(Math.cos(p)); eqy.push(Math.sin(p)); eqz.push(0);
+  }
+  traces.push({
+    type: 'scatter3d', mode: 'lines', x: eq, y: eqy, z: eqz,
+    line: { color: '#475569', width: 1 }, hoverinfo: 'skip', showlegend: false
+  });
+
+  // Meridian
+  const me = [], mey = [], mez = [];
+  for (let ti = 0; ti <= 100; ti++) {
+    const t = Math.PI * ti / 100;
+    me.push(Math.sin(t)); mey.push(0); mez.push(Math.cos(t));
+  }
+  traces.push({
+    type: 'scatter3d', mode: 'lines', x: me, y: mey, z: mez,
+    line: { color: '#475569', width: 0.5, dash: 'dot' }, hoverinfo: 'skip', showlegend: false
+  });
+
+  // Axis labels
+  for (const lbl of labels) {
+    traces.push({
+      type: 'scatter3d', mode: 'text',
+      x: [lbl.x], y: [lbl.y], z: [lbl.z],
+      text: [lbl.text],
+      textfont: { color: lbl.color, size: 11 },
+      hoverinfo: 'skip', showlegend: false
+    });
+  }
+
+  // Current state point
+  const S = HOPSPhysics.stokesFromHops(theta, phi);
+  traces.push({
+    type: 'scatter3d', mode: 'markers',
+    x: [S[1]], y: [S[2]], z: [S[3]],
+    marker: { color: '#ef4444', size: 8, symbol: 'circle' },
+    hoverinfo: 'skip', showlegend: false, name: 'current'
+  });
+
+  // Origin line to current point
+  traces.push({
+    type: 'scatter3d', mode: 'lines',
+    x: [0, S[1]], y: [0, S[2]], z: [0, S[3]],
+    line: { color: '#ef4444', width: 2 },
+    hoverinfo: 'skip', showlegend: false
+  });
+
+  const layout = {
+    scene: {
+      xaxis: { range: [-1.3, 1.3], showgrid: false, zeroline: false, showticklabels: false, title: '' },
+      yaxis: { range: [-1.3, 1.3], showgrid: false, zeroline: false, showticklabels: false, title: '' },
+      zaxis: { range: [-1.3, 1.3], showgrid: false, zeroline: false, showticklabels: false, title: '' },
+      bgcolor: '#f8fafc'
+    },
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    paper_bgcolor: '#f8fafc',
+    showlegend: false,
+    dragmode: 'orbit'
+  };
+
+  const nTraces = 4 + labels.length;
+  const cfg = { displayModeBar: false, responsive: true };
+
+  if (!sphereInited) {
+    sphereInited = true;
+    return Plotly.newPlot('sphere-area', traces, layout, cfg);
+  } else {
+    Plotly.react('sphere-area', traces, layout, cfg);
+  }
+
+  // Sphere click handler
+  document.getElementById('sphere-area').on('plotly_click', function(data) {
+    if (!data || !data.points || data.points.length === 0) return;
+    const pt = data.points[0];
+    const sx = pt.x, sy = pt.y, sz = pt.z;
+    const r = Math.sqrt(sx*sx + sy*sy + sz*sz);
+    if (r < 0.01) return;
+    const th = Math.acos(Math.max(-1, Math.min(1, sz/r))) * 180 / Math.PI;
+    let ph = Math.atan2(sy, sx) * 180 / Math.PI;
+    if (ph < 0) ph += 360;
+    theta = th; phi = ph;
+    document.getElementById('sl-theta').value = th;
+    document.getElementById('sl-phi').value = ph;
+    document.getElementById('v-theta').textContent = th.toFixed(1)+'°';
+    document.getElementById('v-phi').textContent = ph.toFixed(1)+'°';
+    updateVals();
+    buildSphere();
+    renderBeam();
+  });
+}
+
+function renderBeam() {
+  const mode = document.getElementById('beam-mode').value;
+  const ml = Math.max(Math.abs(l1), Math.abs(l2), 1);
+  const Rmax = Math.max(3.0, 1.0 * (Math.sqrt(ml) * 1.6 + 1.0));
+  const N = 150;
+  const xs = Array.from({length:N}, (_,i) => -Rmax + 2*Rmax*i/(N-1));
+  const ys = Array.from({length:N}, (_,i) => -Rmax + 2*Rmax*i/(N-1));
+
+  let grid, cs, zmin, zmax, info;
+  switch (mode) {
+    case 'ex_intensity':
+      grid = HOPSPhysics.exIntensity(theta, phi, l1, l2, xs, ys, 1.0);
+      cs = 'Inferno'; zmin = null; zmax = null;
+      info = `花瓣数: |ℓ₁−ℓ₂| = ${Math.abs(l1-l2)}`;
+      break;
+    case 'total_intensity':
+      grid = HOPSPhysics.totalIntensity(theta, phi, l1, l2, xs, ys, 1.0);
+      cs = 'Hot'; zmin = null; zmax = null;
+      info = '';
+      break;
+    case 'phase':
+      grid = HOPSPhysics.phase(theta, phi, l1, l2, xs, ys, 1.0);
+      cs = 'Twilight'; zmin = -Math.PI; zmax = Math.PI;
+      info = 'arg(Ex)';
+      break;
+    case 's1':
+      grid = HOPSPhysics.s1Grid(theta, phi, l1, l2, xs, ys, 1.0);
+      cs = 'RdBu'; zmin = -1; zmax = 1;
+      info = '(H−V) 水平/垂直偏振差';
+      break;
+    case 's2':
+      grid = HOPSPhysics.s2Grid(theta, phi, l1, l2, xs, ys, 1.0);
+      cs = 'RdBu'; zmin = -1; zmax = 1;
+      info = '局域线性偏振参数';
+      break;
+    case 's3':
+      grid = HOPSPhysics.s3Grid(theta, phi, l1, l2, xs, ys, 1.0);
+      cs = 'RdBu'; zmin = -1; zmax = 1;
+      info = '局域圆偏振参数';
+      break;
+  }
+  if (!grid) return;
+
+  const z = [];
+  for (let j=0;j<grid.Ny;j++) {
+    const row=[];
+    for (let i=0;i<grid.Nx;i++) row.push(grid.data[j*grid.Nx+i]);
+    z.push(row);
+  }
+
+  const trace = { type:'heatmap', z, x:xs, y:ys, colorscale:cs, zmin, zmax, showscale:false, hoverinfo:'none' };
+  const layout = {
+    xaxis:{range:[-Rmax,Rmax],showgrid:false,zeroline:false,showticklabels:false,title:''},
+    yaxis:{range:[-Rmax,Rmax],showgrid:false,zeroline:false,showticklabels:false,title:''},
+    margin:{l:0,r:0,t:0,b:0},
+    paper_bgcolor:'#f8fafc', plot_bgcolor:'#f8fafc'
+  };
+  const cfg = {displayModeBar:false,responsive:true};
+
+  if (!beamBuilt) { Plotly.newPlot('beam-plot',[trace],layout,cfg); beamBuilt=true; }
+  else { Plotly.react('beam-plot',[trace],layout,cfg); }
+
+  document.getElementById('beam-info').textContent =
+    `ℓ₁=${l1}  ℓ₂=${l2}  θ=${theta.toFixed(1)}°  φ=${phi.toFixed(1)}°  ${info}`;
+}
+
+// ── Slider handlers ──
+function doUpdate() { const p=buildSphere(); if(p) p.then(renderBeam); else renderBeam(); updateVals(); }
+function onL1Change() { l1=+document.getElementById('sl-l1').value; document.getElementById('v-l1').textContent=l1; doUpdate(); }
+function onL2Change() { l2=+document.getElementById('sl-l2').value; document.getElementById('v-l2').textContent=l2; doUpdate(); }
+function onThetaChange() { theta=+document.getElementById('sl-theta').value; document.getElementById('v-theta').textContent=theta.toFixed(1)+'°'; doUpdate(); }
+function onPhiChange() { phi=+document.getElementById('sl-phi').value; document.getElementById('v-phi').textContent=phi.toFixed(1)+'°'; doUpdate(); }
+
+// ── Presets ──
+function setL12(a,b) {
+  l1=a; l2=b;
+  document.getElementById('sl-l1').value=a; document.getElementById('sl-l2').value=b;
+  document.getElementById('v-l1').textContent=a; document.getElementById('v-l2').textContent=b;
+  doUpdate();
+}
+function setTP(th,ph) {
+  theta=th; phi=ph;
+  document.getElementById('sl-theta').value=th; document.getElementById('sl-phi').value=ph;
+  document.getElementById('v-theta').textContent=th.toFixed(1)+'°';
+  document.getElementById('v-phi').textContent=ph.toFixed(1)+'°';
+  doUpdate();
+}
+
+// ── Init ──
+window.onload = function() {
+  // parse URL params (from index.html HOPS link)
+  const q = new URLSearchParams(window.location.search);
+  const qt = parseFloat(q.get('theta')), qf = parseFloat(q.get('phi'));
+  if (!isNaN(qt) && qt >= 0 && qt <= 180) {
+    theta = qt;
+    document.getElementById('sl-theta').value = theta;
+    document.getElementById('v-theta').textContent = theta.toFixed(1) + '°';
+  }
+  if (!isNaN(qf) && qf >= 0 && qf <= 360) {
+    phi = qf;
+    document.getElementById('sl-phi').value = phi;
+    document.getElementById('v-phi').textContent = phi.toFixed(1) + '°';
+  }
+  updateVals();
+  const p = buildSphere();
+  if (p) p.then(renderBeam);
+  else renderBeam();
+};
+
+window.onresize = function() {
+  if (sphereInited) Plotly.Plots.resize('sphere-area');
+  if (beamBuilt) Plotly.Plots.resize('beam-plot');
+};
+</script>
+</body>
+</html>
