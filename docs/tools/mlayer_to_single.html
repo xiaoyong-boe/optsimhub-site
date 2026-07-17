@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多层膜等效单层膜转换</title>
+<style>
+:root {
+  --bg: #f8fafc;
+  --bg-panel: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-dim: #64748b;
+  --accent: #2563eb;
+  --accent2: #d97706;
+  --green: #10b981;
+  --red: #ef4444;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+h1 { font-size: 20px; margin-bottom: 4px; }
+.subtitle { font-size: 12px; color: var(--text-dim); margin-bottom: 20px; }
+.back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; font-size: 13px; }
+.back-link:hover { text-decoration: underline; }
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.panel-title {
+  font-size: 13px; font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+/* Input row */
+.input-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.input-row label {
+  font-size: 12px; color: var(--text-dim);
+  min-width: 60px;
+}
+.input-row input {
+  width: 80px; padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px; font-size: 13px;
+  text-align: center;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+.input-row input:focus { outline: none; border-color: var(--accent); }
+
+/* Layer table */
+#layer-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; margin-top: 8px;
+}
+#layer-table th {
+  background: var(--bg);
+  padding: 6px 8px; text-align: center;
+  font-size: 11px; color: var(--text-dim);
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+}
+#layer-table td {
+  padding: 6px 8px; text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+#layer-table input {
+  width: 70px; padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px; font-size: 12px;
+  text-align: center;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+#layer-table input:focus { outline: none; border-color: var(--accent); }
+#layer-table .del-btn {
+  background: none; border: 1px solid var(--red);
+  color: var(--red); border-radius: 3px;
+  padding: 2px 8px; cursor: pointer;
+  font-size: 11px;
+}
+#layer-table .del-btn:hover { background: var(--red); color: #fff; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 8px; margin-top: 8px; }
+.btn {
+  padding: 4px 14px; border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text); cursor: pointer;
+  font-size: 12px; transition: all .15s;
+}
+.btn:hover { background: var(--bg); border-color: var(--accent); }
+.btn.primary {
+  background: var(--accent); color: #fff;
+  border-color: var(--accent);
+}
+.btn.primary:hover { background: #1d4ed8; }
+
+/* Result */
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.result-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px; text-align: center;
+}
+.result-card .label { font-size: 10px; color: var(--text-dim); }
+.result-card .value {
+  font-size: 18px; font-weight: 700;
+  margin-top: 4px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+.result-card.eq .value { color: var(--green); }
+
+/* Matrix display */
+.matrix-display {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px; white-space: pre;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+.matrix-display .m-label { color: var(--text-dim); font-size: 11px; margin-bottom: 4px; }
+
+/* Compare table */
+#compare-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; margin-top: 8px;
+}
+#compare-table th {
+  background: var(--bg);
+  padding: 6px 8px; text-align: center;
+  font-size: 11px; color: var(--text-dim);
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+}
+#compare-table td {
+  padding: 6px 8px; text-align: center;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.hint {
+  font-size: 11px; color: var(--text-dim);
+  margin-top: 6px; line-height: 1.6;
+}
+
+/* Phase ambiguity note */
+.note {
+  font-size: 11px; color: var(--text-dim);
+  background: #fef3c7; border: 1px solid #fcd34d;
+  border-radius: 4px; padding: 8px 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  body { padding: 12px; }
+  .result-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← 小工具</a>
+<h1>多层膜等效单层膜转换</h1>
+<p class="subtitle">将多层薄膜的传输矩阵等效为单层膜参数（相位延迟 + 等效折射率）</p>
+
+<div class="panel">
+  <div class="panel-title">光学参数</div>
+  <div class="input-row">
+    <label>入射介质 n₀</label>
+    <input type="number" id="n0" value="1.0" step="0.01" min="0.5" max="5">
+    <label style="margin-left:16px">基底 n_sub</label>
+    <input type="number" id="nsub" value="1.52" step="0.01" min="0.5" max="10">
+    <label style="margin-left:16px">波长 λ (nm)</label>
+    <input type="number" id="wavelength" value="550" step="1" min="100" max="50000" style="width:90px">
+    <label style="margin-left:16px">入射角 θ (°)</label>
+    <input type="number" id="theta0" value="0" step="1" min="0" max="89" style="width:70px">
+  </div>
+  <div class="hint">默认正入射 (θ=0°)。斜入射时使用等效导纳 Y = n·cosθ (TE) 或 n/cosθ (TM) 参与矩阵运算。</div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">膜系结构</div>
+  <table id="layer-table">
+    <thead>
+      <tr><th>层号</th><th>材料</th><th>折射率 n</th><th>物理厚度 d (nm)</th><th>相位厚度 δ</th><th>操作</th></tr>
+    </thead>
+    <tbody id="layer-tbody">
+    </tbody>
+  </table>
+  <div class="btn-row">
+    <button class="btn" onclick="addLayer()">+ 添加膜层</button>
+    <button class="btn" onclick="addDefaultHL()">HL 膜系 (1/4波堆)</button>
+    <button class="btn" onclick="addDefaultAR()">增透膜例</button>
+    <span style="flex:1"></span>
+    <button class="btn primary" onclick="calculate()">▶ 计算等效</button>
+  </div>
+</div>
+
+<div class="panel" id="result-panel" style="display:none">
+  <div class="panel-title">等效单层膜参数</div>
+  <div class="result-grid">
+    <div class="result-card eq">
+      <div class="label">等效折射率 n_eq</div>
+      <div class="value" id="r-neq">—</div>
+    </div>
+    <div class="result-card eq">
+      <div class="label">等效物理厚度 d_eq (nm)</div>
+      <div class="value" id="r-deq">—</div>
+    </div>
+    <div class="result-card eq">
+      <div class="label">等效光学厚度 (nm)</div>
+      <div class="value" id="r-ot">—</div>
+    </div>
+    <div class="result-card eq">
+      <div class="label">等效相位延迟 (°)</div>
+      <div class="value" id="r-delta">—</div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:280px;">
+      <div class="matrix-display">
+        <div class="m-label">多层膜特征矩阵 M</div>
+        <div id="m-full"></div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:280px;">
+      <div class="matrix-display">
+        <div class="m-label">等效单层膜特征矩阵 M_eq</div>
+        <div id="m-eq"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <div class="panel-title" style="margin-bottom:8px">反射率对比</div>
+    <table id="compare-table">
+      <thead>
+        <tr><th></th><th>多层膜 R</th><th>等效单层 R</th><th>差异</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-weight:600">反射率</td>
+          <td id="cr-full">—</td>
+          <td id="cr-eq">—</td>
+          <td id="cr-diff">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// Physics: Thin-film characteristic matrix method
+// ════════════════════════════════════════════════════════════
+
+const Physics = {
+  /** deg → rad */
+  d2r(d) { return d * Math.PI / 180; },
+  r2d(r) { return r * 180 / Math.PI; },
+
+  /** Characteristic matrix for a single layer at given theta */
+  layerMatrix(n, d_nm, lambda, theta_deg, pol) {
+    const th = this.d2r(theta_deg);
+    // Snell: n0 sinθ0 = n sinθ
+    const sinTh = Math.sin(th) * 1.0 / n;  // n0=1 assumed for internal calc
+    const cosTh = Math.sqrt(Math.max(0, 1 - sinTh * sinTh));
+
+    // Admittance
+    let eta;
+    if (pol === 'TE' || pol === 'average') {
+      eta = n * cosTh;  // TE: Y = n cosθ
+    } else {
+      eta = n / cosTh;  // TM: Y = n / cosθ
+    }
+
+    // Phase thickness
+    const delta = 2 * Math.PI * n * d_nm * cosTh / lambda;
+
+    // Matrix: [[cosδ, i·sinδ/η], [i·η·sinδ, cosδ]]
+    const cd = Math.cos(delta), sd = Math.sin(delta);
+    return {
+      m11: cd,            m12: { re: 0, im: sd / eta },
+      m21: { re: 0, im: eta * sd }, m22: cd,
+      delta, eta, n, d_nm
+    };
+  },
+
+  /** Multiply two 2×2 matrices */
+  mulMat(A, B) {
+    return {
+      m11: A.m11 * B.m11 + (A.m12.re * B.m21.re - A.m12.im * B.m21.im + (A.m12.re * B.m21.im + A.m12.im * B.m21.re) * 0),
+      m22: (A.m21.re * B.m12.re - A.m21.im * B.m12.im) + A.m22 * B.m22,
+      m12: {
+        re: A.m11 * B.m12.re - A.m12.im * B.m21.im + A.m11 * B.m12.re,
+        im: A.m11 * B.m12.im + A.m12.im * B.m21.re
+      },
+      m21: {
+        re: A.m21.re * B.m11 - A.m21.im * 0 + A.m22 * B.m21.re,
+        im: A.m21.im * B.m11 + A.m21.re * 0 + A.m22 * B.m21.im
+      }
+    };
+  },
+
+  // Manual multiplication
+  mul2(A, B) {
+    // A and B have form: [[m11, a+bi], [c+di, m22]]
+    const a1 = A.m12.re, b1 = A.m12.im;
+    const c1 = A.m21.re, d1 = A.m21.im;
+    const a2 = B.m12.re, b2 = B.m12.im;
+    const c2 = B.m21.re, d2 = B.m21.im;
+
+    const m11 = A.m11 * B.m11 + (a1 * c2 - b1 * d2);
+    const m22 = (c1 * a2 - d1 * b2) + A.m22 * B.m22;
+
+    const m12_re = A.m11 * a2 + a1 * B.m22;
+    const m12_im = A.m11 * b2 + b1 * B.m22;
+
+    const m21_re = c1 * B.m11 + A.m22 * c2;
+    const m21_im = d1 * B.m11 + A.m22 * d2;
+
+    return { m11, m22, m12: { re: m12_re, im: m12_im }, m21: { re: m21_re, im: m21_im } };
+  },
+
+  /** Full multilayer characteristic matrix */
+  computeMatrix(layers, lambda) {
+    if (layers.length === 0) return null;
+    let M = layers[0].M;
+    for (let i = 1; i < layers.length; i++) {
+      M = this.mul2(M, layers[i].M);
+    }
+    return M;
+  },
+
+  /** Reflectance from characteristic matrix */
+  reflectance(M, n0, nsub) {
+    const m11 = M.m11, m22 = M.m22;
+    const a = M.m12.re, b = M.m12.im;
+    const c = M.m21.re, d = M.m21.im;
+    // R = |(Y0*m11 + Y0*Ysub*m12 - m21 - Ysub*m22) / (...) |^2
+    // For normal incidence: Y0 = n0, Ysub = nsub
+    // Numerator: n0*m11 + n0*nsub*(a+bi) - (c+di) - nsub*m22
+    const num_re = n0 * m11 + n0 * nsub * a - c - nsub * m22;
+    const num_im = n0 * nsub * b - d;
+    // Denominator: n0*m11 + n0*nsub*(a+bi) + (c+di) + nsub*m22
+    const den_re = n0 * m11 + n0 * nsub * a + c + nsub * m22;
+    const den_im = n0 * nsub * b + d;
+
+    const num2 = num_re * num_re + num_im * num_im;
+    const den2 = den_re * den_re + den_im * den_im;
+    if (den2 < 1e-30) return 0;
+    return num2 / den2;
+  },
+
+  /** Main calculation */
+  calcEquivalent(layers, lambda, n0, nsub) {
+    const M = this.computeMatrix(layers, lambda);
+    if (!M) return null;
+
+    // M should have form [[cosδ_eq, i·sinδ_eq/η_eq], [i·η_eq·sinδ_eq, cosδ_eq]]
+    const m11 = M.m11;
+
+    // Phase: cos(δ_eq) = m11
+    const cosDeq = Math.max(-1, Math.min(1, m11));
+    let delta_eq_rad = Math.acos(cosDeq);
+
+    // Determine η_eq from m12/m21
+    // m12 = i·sinδ/η → m12.im = sinδ/η
+    // m21 = i·η·sinδ → m21.im = η·sinδ
+    const sinDeq = Math.sin(delta_eq_rad);
+    if (Math.abs(sinDeq) < 1e-10) {
+      // sin(δ) ≈ 0 → quarter-wave stack at this wavelength
+      // Can't determine unique η, use sqrt(|m21/m12|)
+      const mag_m12 = Math.sqrt(M.m12.re * M.m12.re + M.m12.im * M.m12.im);
+      const mag_m21 = Math.sqrt(M.m21.re * M.m21.re + M.m21.im * M.m21.im);
+      const eta_eq = mag_m12 > 1e-15 ? Math.sqrt(mag_m21 / mag_m12) : 1.0;
+      const d_eq_nm = delta_eq_rad * lambda / (2 * Math.PI * eta_eq);
+
+      const M_eq = {
+        m11: Math.cos(delta_eq_rad), m22: Math.cos(delta_eq_rad),
+        m12: { re: 0, im: Math.sin(delta_eq_rad) / eta_eq },
+        m21: { re: 0, im: eta_eq * Math.sin(delta_eq_rad) }
+      };
+      return { neq: eta_eq, deq_nm: d_eq_nm, delta_deg: this.r2d(delta_eq_rad), M, M_eq, sinZero: true };
+    }
+
+    // Preferred: m21.im / sinδ = η_eq
+    const eta_from_21 = M.m21.im / sinDeq;
+    const eta_from_12 = sinDeq / M.m12.im;
+
+    // Use whichever is more reasonable, prefer eta_from_21 when positive
+    let eta_eq;
+    if (eta_from_21 > 0.01 && eta_from_21 < 100) {
+      eta_eq = eta_from_21;
+    } else if (eta_from_12 > 0.01 && eta_from_12 < 100) {
+      eta_eq = eta_from_12;
+    } else {
+      eta_eq = Math.sqrt(Math.abs(eta_from_21 * eta_from_12));
+    }
+
+    const d_eq_nm = delta_eq_rad * lambda / (2 * Math.PI * eta_eq);
+
+    // Also determine which branch of acos we're on (δ vs 2π-δ)
+    // Check sign from m21: i·η·sinδ, if m21.im < 0 then sinδ < 0
+    // → δ_true = 2π - acos(m11)
+
+    let full_periods = 0;
+    // Count approximate total phase from layers to resolve ambiguity
+    let total_delta_approx = 0;
+    for (const l of layers) {
+      total_delta_approx += l.M.delta;
+    }
+    full_periods = Math.floor(total_delta_approx / (2 * Math.PI));
+
+    // Adjust for sign
+    const m21_im = M.m21.im;
+    const sin_pred = eta_eq * Math.sin(delta_eq_rad);
+    // If m21_im and sin_pred have opposite sign, we chose the wrong branch
+    if (sin_pred * m21_im < 0 && delta_eq_rad < Math.PI - 1e-6) {
+      delta_eq_rad = 2 * Math.PI - delta_eq_rad;
+    }
+
+    // Add full periods
+    const delta_preserved = delta_eq_rad;
+    if (full_periods > 0) delta_eq_rad += full_periods * 2 * Math.PI;
+
+    // Recompute d_eq
+    const d_eq_nm_final = delta_eq_rad * lambda / (2 * Math.PI * eta_eq);
+
+    // Build equivalent matrix
+    const cd = Math.cos(delta_eq_rad), sd = Math.sin(delta_eq_rad);
+    const M_eq = {
+      m11: cd, m22: cd,
+      m12: { re: 0, im: sd / eta_eq },
+      m21: { re: 0, im: eta_eq * sd }
+    };
+
+    return {
+      neq: eta_eq,
+      deq_nm: d_eq_nm_final,
+      delta_deg: this.r2d(delta_eq_rad),
+      delta_mod_deg: this.r2d(delta_preserved),
+      full_periods,
+      M, M_eq,
+      sinZero: false
+    };
+  }
+};
+
+// ════════════════════════════════════════════════════════════
+// UI Logic
+// ════════════════════════════════════════════════════════════
+
+let layers = [];
+
+function addLayer(name = '', n = 1.38, d = 100) {
+  const idx = layers.length + 1;
+  if (!name) name = `Layer ${idx}`;
+  layers.push({ name, n, d_nm: d });
+  renderLayers();
+}
+
+function removeLayer(i) {
+  layers.splice(i, 1);
+  renderLayers();
+}
+
+function renderLayers() {
+  const tbody = document.getElementById('layer-tbody');
+  tbody.innerHTML = layers.map((l, i) => {
+    const delta = 2 * Math.PI * l.n * l.d_nm / parseFloat(document.getElementById('wavelength').value || 550);
+    const deltaDeg = (delta * 180 / Math.PI).toFixed(1);
+    return `<tr>
+      <td>${i + 1}</td>
+      <td><input type="text" value="${l.name}" data-idx="${i}" data-field="name" onchange="updateLayer(this)"></td>
+      <td><input type="number" value="${l.n}" step="0.01" min="0.5" max="10" data-idx="${i}" data-field="n" onchange="updateLayer(this)"></td>
+      <td><input type="number" value="${l.d_nm}" step="1" min="0" max="1e6" data-idx="${i}" data-field="d_nm" onchange="updateLayer(this)"></td>
+      <td>${deltaDeg}°</td>
+      <td><button class="del-btn" onclick="removeLayer(${i})">删除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateLayer(el) {
+  const i = parseInt(el.dataset.idx);
+  const field = el.dataset.field;
+  const val = field === 'name' ? el.value : parseFloat(el.value);
+  layers[i][field] = val;
+  renderLayers();
+}
+
+function addDefaultHL() {
+  const wl = parseFloat(document.getElementById('wavelength').value || 550);
+  layers = [
+    { name: 'H (高折射率)', n: 2.3, d_nm: wl / 4 / 2.3 },
+    { name: 'L (低折射率)', n: 1.38, d_nm: wl / 4 / 1.38 },
+    { name: 'H', n: 2.3, d_nm: wl / 4 / 2.3 },
+    { name: 'L', n: 1.38, d_nm: wl / 4 / 1.38 },
+    { name: 'H', n: 2.3, d_nm: wl / 4 / 2.3 },
+  ];
+  renderLayers();
+  calculate();
+}
+
+function addDefaultAR() {
+  const wl = parseFloat(document.getElementById('wavelength').value || 550);
+  layers = [
+    { name: 'MgF₂', n: 1.38, d_nm: wl / 4 / 1.38 },
+    { name: 'HfO₂', n: 1.9, d_nm: wl / 4 / 1.9 },
+  ];
+  renderLayers();
+  calculate();
+}
+
+function calculate() {
+  const lambda = parseFloat(document.getElementById('wavelength').value) || 550;
+  const n0 = parseFloat(document.getElementById('n0').value) || 1.0;
+  const nsub = parseFloat(document.getElementById('nsub').value) || 1.52;
+  const theta0 = parseFloat(document.getElementById('theta0').value) || 0;
+
+  // Re-render to update phase thickness display
+  renderLayers();
+
+  // Build layer structure with precomputed matrices
+  const layerStructs = layers.map(l => ({
+    ...l,
+    M: Physics.layerMatrix(l.n, l.d_nm, lambda, 0, 'average')
+  }));
+
+  if (layerStructs.length === 0) {
+    document.getElementById('result-panel').style.display = 'none';
+    return;
+  }
+
+  const result = Physics.calcEquivalent(layerStructs, lambda, n0, nsub);
+  if (!result) return;
+
+  // Display results
+  document.getElementById('r-neq').textContent = result.neq.toFixed(4);
+  document.getElementById('r-deq').textContent = result.deq_nm.toFixed(2);
+  document.getElementById('r-ot').textContent = (result.neq * result.deq_nm).toFixed(2);
+  document.getElementById('r-delta').textContent = result.delta_deg.toFixed(1);
+
+  // Matrices
+  function fmtMat(M) {
+    const m11 = M.m11.toFixed(4);
+    const m22 = M.m22.toFixed(4);
+    const m12_re = M.m12.re.toFixed(4), m12_im = M.m12.im.toFixed(4);
+    const m21_re = M.m21.re.toFixed(4), m21_im = M.m21.im.toFixed(4);
+    const m12_str = (m12_im >= 0 ? `${m12_re} + ${m12_im}i` : `${m12_re} - ${Math.abs(M.m12.im).toFixed(4)}i`);
+    const m21_str = (m21_im >= 0 ? `${m21_re} + ${m21_im}i` : `${m21_re} - ${Math.abs(M.m21.im).toFixed(4)}i`);
+    return `┌                ┐\n│ ${m11}    ${m12_str} │\n│ ${m21_str}    ${m22} │\n└                ┘`;
+  }
+
+  document.getElementById('m-full').textContent = fmtMat(result.M);
+  document.getElementById('m-eq').textContent = fmtMat(result.M_eq);
+
+  // Reflectance comparison
+  const R_full = Physics.reflectance(result.M, n0, nsub);
+  const R_eq = Physics.reflectance(result.M_eq, n0, nsub);
+  document.getElementById('cr-full').textContent = (R_full * 100).toFixed(4) + '%';
+  document.getElementById('cr-eq').textContent = (R_eq * 100).toFixed(4) + '%';
+  const diff = Math.abs(R_full - R_eq);
+  document.getElementById('cr-diff').textContent = diff < 1e-8 ? '0 (精确等价)' : (diff * 100).toFixed(6) + '%';
+  document.getElementById('cr-diff').style.color = diff < 1e-4 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('result-panel').style.display = 'block';
+}
+
+// Init
+addLayer('MgF₂', 1.38, 100);
+addLayer('TiO₂', 2.3, 50);
+calculate();
+</script>
+
+</body>
+</html>
