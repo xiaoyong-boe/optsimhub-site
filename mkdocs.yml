@@ -53,5 +53,6 @@ nav:
     - API参考: docs/api.md
   - 小工具:
     - 多层膜等效单层膜转换: tools/mlayer_to_single.html
+    - 摩尔纹光学模拟: tools/moiré.html
   - 意见反馈: feedback.md
   - 关于: about.md

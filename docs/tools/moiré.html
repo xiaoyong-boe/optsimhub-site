@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>摩尔纹光学模拟系统</title>
+<style>
+  :root {
+    --bg: #f1f5f9;
+    --panel: #ffffff;
+    --border: #cbd5e1;
+    --text: #1e293b;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --green: #16a34a;
+    --red: #dc2626;
+    --yellow: #ca8a04;
+    --progress-bg: #e2e8f0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  h1 { font-size: 1.6rem; font-weight: 700; text-align: center; margin-bottom: 24px; letter-spacing: 1px; }
+
+  .main-grid { display: grid; grid-template-columns: 440px 1fr; gap: 20px; }
+  @media (max-width: 860px) { .main-grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 20px; margin-bottom: 16px;
+  }
+  .panel h3 {
+    font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--accent); margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px;
+  }
+
+  .form-row { display: flex; align-items: center; margin-bottom: 8px; gap: 8px; }
+  .form-row label { font-size: 0.82rem; color: var(--muted); min-width: 120px; text-align: right; flex-shrink: 0; }
+  .form-row input[type="text"], .form-row input[type="number"] {
+    flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--bg); color: var(--text); font-size: 0.85rem; outline: none; transition: border .2s;
+  }
+  .form-row input:focus { border-color: var(--accent); }
+
+  .file-upload {
+    border: 2px dashed var(--border); border-radius: 10px; padding: 14px;
+    text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 8px;
+  }
+  .file-upload:hover, .file-upload.drag-over { border-color: var(--accent); background: rgba(59,130,246,.05); }
+  .file-upload .icon { font-size: 1.5rem; margin-bottom: 2px; }
+  .file-upload .label { font-size: 0.82rem; color: var(--muted); }
+  .file-upload .name { font-size: 0.78rem; color: var(--green); margin-top: 4px; word-break: break-all; }
+  .file-upload input[type="file"] { display: none; }
+
+  .chk-group { display: flex; gap: 12px; flex-wrap: wrap; }
+  .chk-group label { display: flex; align-items: center; gap: 4px; font-size: 0.82rem; cursor: pointer; color: var(--text); }
+  .chk-group input[type="checkbox"] { accent-color: var(--accent); }
+
+  .btn-run {
+    width: 100%; padding: 12px; border: none; border-radius: 8px;
+    background: var(--accent); color: #fff; font-size: 1rem; font-weight: 600;
+    cursor: pointer; transition: background .2s; letter-spacing: 1px;
+  }
+  .btn-run:hover { background: var(--accent-hover); }
+  .btn-run:disabled { opacity: .6; cursor: not-allowed; }
+
+  .right-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .progress-wrap { display: flex; align-items: center; gap: 10px; }
+  .progress-bar { flex: 1; height: 10px; background: var(--progress-bg); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s; width: 0%; }
+  .progress-text { font-size: 0.82rem; color: var(--muted); min-width: 40px; text-align: right; }
+
+  .log-box {
+    flex: 1; min-height: 180px; max-height: 300px; overflow-y: auto;
+    font-family: 'Consolas', 'Courier New', monospace; font-size: 0.78rem; line-height: 1.5;
+    padding: 10px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+  }
+  .log-line { color: var(--muted); }
+  .log-error { color: var(--red); }
+
+  .result-table {
+    width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 8px;
+  }
+  .result-table th {
+    background: var(--bg); padding: 6px 4px; text-align: center; font-weight: 600;
+    border-bottom: 2px solid var(--border); color: var(--accent); font-size: 0.7rem;
+  }
+  .result-table td { padding: 5px 4px; text-align: center; border-bottom: 1px solid var(--border); }
+  .level-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.7rem;
+  }
+  .level-L0,.level-L0-5,.level-L1,.level-L1-5 { background: #dcfce7; color: #15803d; }
+  .level-L2,.level-L2-5,.level-L3,.level-L3-5 { background: #fef9c3; color: #a16207; }
+  .level-L4,.level-L4-5,.level-L5 { background: #fecaca; color: #b91c1c; }
+
+  .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+  .img-card { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+  .img-card img { width: 100%; display: block; }
+  .img-card .caption { text-align: center; padding: 4px; font-size: 0.72rem; color: var(--muted); }
+
+  .btn-dl {
+    display: inline-block; padding: 8px 18px; border-radius: 6px;
+    background: var(--green); color: #000; font-weight: 600;
+    text-decoration: none; font-size: 0.85rem; margin-top: 8px; margin-right: 8px;
+  }
+  .btn-dl:hover { opacity: .9; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="index.html" style="display:inline-block;margin-bottom:6px;color:#2563eb;text-decoration:none;font-size:13px;">← 返回小工具</a>
+  <h1>摩尔纹光学模拟系统</h1>
+
+  <button class="btn-run" id="btnRun" onclick="startSim()" style="display:block;margin:0 auto 20px;width:300px;">开始模拟</button>
+
+  <div class="main-grid">
+    <!-- ====== 左侧：参数面板 ====== -->
+    <div class="left-panel">
+
+      <div class="panel">
+        <h3>文件选择</h3>
+        <div class="file-upload" id="bmUpload">
+          <div class="icon">BM</div>
+          <div class="label">点击或拖拽上传 BM 单元图</div>
+          <div class="name" id="bmName"></div>
+          <input type="file" id="bmFile" accept="image/*">
+        </div>
+        <div class="file-upload" id="sensorUpload">
+          <div class="icon">Sensor</div>
+          <div class="label">点击或拖拽上传 Sensor 单元图</div>
+          <div class="name" id="sensorName"></div>
+          <input type="file" id="sensorFile" accept="image/*">
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>输出图像分辨率</h3>
+        <div class="form-row"><label>宽度（像素）</label><input type="text" id="sizex" value="1920"></div>
+        <div class="form-row"><label>高度（像素）</label><input type="text" id="sizey" value="1080"></div>
+      </div>
+
+      <div class="panel">
+        <h3>BM 单元参数</h3>
+        <div class="form-row"><label>水平 dot 数</label><input type="text" id="bmDotX" value="30"></div>
+        <div class="form-row"><label>垂直 dot 数</label><input type="text" id="bmDotY" value="30"></div>
+        <div class="form-row"><label>Pixel Pitch (um)</label><input type="text" id="pxl" value="100"></div>
+      </div>
+
+      <div class="panel">
+        <h3>光学参数</h3>
+        <div class="form-row"><label>视距 (um)</label><input type="text" id="hight" value="500000"></div>
+        <div class="form-row"><label>视角 (°)</label><input type="text" id="angle" value="90"></div>
+        <div class="form-row"><label>Glass 厚度 (um)</label><input type="text" id="dglass" value="400"></div>
+        <div class="form-row"><label>Glass 折射率</label><input type="text" id="ref" value="1.5"></div>
+      </div>
+
+      <div class="panel">
+        <h3>Sensor 单元尺寸</h3>
+        <div class="form-row"><label>水平宽度 (um)</label><input type="text" id="sensorX" value="150"></div>
+        <div class="form-row"><label>垂直高度 (um)</label><input type="text" id="sensorY" value="150"></div>
+      </div>
+
+      <div class="panel">
+        <h3>颜色通道</h3>
+        <div class="chk-group">
+          <label><input type="checkbox" id="chW" checked> W（白光）</label>
+          <label><input type="checkbox" id="chR"> R（红色）</label>
+          <label><input type="checkbox" id="chG"> G（绿色）</label>
+          <label><input type="checkbox" id="chB"> B（蓝色）</label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ====== 右侧：结果面板 ====== -->
+    <div class="right-panel">
+      <div class="panel">
+        <h3>运行进度</h3>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          <span class="progress-text" id="progressText">0%</span>
+        </div>
+        <div class="log-box" id="logBox"></div>
+      </div>
+
+      <!-- 排名结果表格 -->
+      <div class="panel hidden" id="resultPanel">
+        <h3>排名结果</h3>
+        <div style="overflow-x:auto">
+          <table class="result-table" id="resultTable"></table>
+        </div>
+        <a class="btn-dl" id="btnDownload" href="#" target="_blank">下载排名 Excel</a>
+      </div>
+
+      <!-- 模拟结果图像 -->
+      <div class="panel hidden" id="resultImagePanel">
+        <h3>模拟结果图像</h3>
+        <div class="img-grid" id="resultImageGrid"></div>
+        <a class="btn-dl hidden" id="btnDlW" href="#" target="_blank">下载 W</a>
+        <a class="btn-dl hidden" id="btnDlR" href="#" target="_blank">下载 R</a>
+        <a class="btn-dl hidden" id="btnDlG" href="#" target="_blank">下载 G</a>
+        <a class="btn-dl hidden" id="btnDlB" href="#" target="_blank">下载 B</a>
+      </div>
+
+      <!-- CSF 滤波图像 -->
+      <div class="panel hidden" id="csfImagePanel">
+        <h3>CSF 滤波图像</h3>
+        <div class="img-grid" id="csfImageGrid"></div>
+        <a class="btn-dl hidden" id="btnCsfW" href="#" target="_blank">下载 CSF-W</a>
+        <a class="btn-dl hidden" id="btnCsfR" href="#" target="_blank">下载 CSF-R</a>
+        <a class="btn-dl hidden" id="btnCsfG" href="#" target="_blank">下载 CSF-G</a>
+        <a class="btn-dl hidden" id="btnCsfB" href="#" target="_blank">下载 CSF-B</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== 文件上传 ==========
+function setupFileUpload(boxId, fileInputId, nameId) {
+  const box = document.getElementById(boxId);
+  const input = document.getElementById(fileInputId);
+  const nameEl = document.getElementById(nameId);
+  box.addEventListener('click', () => input.click());
+  box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('drag-over'); });
+  box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+  box.addEventListener('drop', (e) => {
+    e.preventDefault(); box.classList.remove('drag-over');
+    if (e.dataTransfer.files.length > 0) { input.files = e.dataTransfer.files; nameEl.textContent = e.dataTransfer.files[0].name; }
+  });
+  input.addEventListener('change', () => { if (input.files.length > 0) nameEl.textContent = input.files[0].name; });
+}
+setupFileUpload('bmUpload', 'bmFile', 'bmName');
+setupFileUpload('sensorUpload', 'sensorFile', 'sensorName');
+
+function addLog(text, cls) {
+  const logBox = document.getElementById('logBox');
+  const div = document.createElement('div');
+  div.className = cls || 'log-line';
+  div.textContent = text;
+  logBox.appendChild(div);
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+// ========== 主流程 ==========
+async function startSim() {
+  const bmFile = document.getElementById('bmFile').files[0];
+  const sensorFile = document.getElementById('sensorFile').files[0];
+  if (!bmFile || !sensorFile) { alert('请选择 BM 单元图和 Sensor 单元图'); return; }
+
+  const btn = document.getElementById('btnRun');
+  btn.disabled = true; btn.textContent = '模拟中...';
+
+  document.getElementById('logBox').innerHTML = '';
+  document.getElementById('resultPanel').classList.add('hidden');
+  document.getElementById('resultImagePanel').classList.add('hidden');
+  document.getElementById('csfImagePanel').classList.add('hidden');
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressText').textContent = '0%';
+
+  const form = new FormData();
+  form.append('bm_file', bmFile);
+  form.append('sensor_file', sensorFile);
+  form.append('sizex', document.getElementById('sizex').value);
+  form.append('sizey', document.getElementById('sizey').value);
+  form.append('bm_dot_x', document.getElementById('bmDotX').value);
+  form.append('bm_dot_y', document.getElementById('bmDotY').value);
+  form.append('pxl', document.getElementById('pxl').value);
+  form.append('hight', document.getElementById('hight').value);
+  form.append('angle', document.getElementById('angle').value);
+  form.append('dglass', document.getElementById('dglass').value);
+  form.append('ref', document.getElementById('ref').value);
+  form.append('sensor_x', document.getElementById('sensorX').value);
+  form.append('sensor_y', document.getElementById('sensorY').value);
+  form.append('ch_w', document.getElementById('chW').checked ? '1' : '0');
+  form.append('ch_r', document.getElementById('chR').checked ? '1' : '0');
+  form.append('ch_g', document.getElementById('chG').checked ? '1' : '0');
+  form.append('ch_b', document.getElementById('chB').checked ? '1' : '0');
+
+  try {
+    const resp = await fetch('/api/run', { method: 'POST', body: form });
+    const data = await resp.json();
+    const taskId = data.task_id;
+    addLog('任务已提交: ' + taskId);
+
+    const evtSource = new EventSource('/api/progress/' + taskId);
+    evtSource.addEventListener('message', (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'log') {
+        addLog(msg.text);
+      } else if (msg.type === 'progress') {
+        const pct = Math.round(msg.value * 100);
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressText').textContent = pct + '%';
+      } else if (msg.type === 'done') {
+        addLog('模拟完成！', 'log-line');
+        evtSource.close();
+        onDone(taskId);
+        btn.disabled = false; btn.textContent = '开始模拟';
+      } else if (msg.type === 'error') {
+        addLog('错误: ' + msg.message, 'log-error');
+        evtSource.close();
+        btn.disabled = false; btn.textContent = '开始模拟';
+      }
+    });
+    evtSource.addEventListener('error', () => { evtSource.close(); btn.disabled = false; btn.textContent = '开始模拟'; });
+  } catch (err) {
+    addLog('请求失败: ' + err.message, 'log-error');
+    btn.disabled = false; btn.textContent = '开始模拟';
+  }
+}
+
+// ========== 结果加载 ==========
+async function onDone(taskId) {
+  document.getElementById('progressFill').style.width = '100%';
+  document.getElementById('progressText').textContent = '100%';
+
+  // 1. 下载链接
+  document.getElementById('btnDownload').href = '/api/result/' + taskId;
+  document.getElementById('btnDownload').style.display = 'inline-block';
+
+  // 2. 排名数据表格
+  try {
+    const resp = await fetch('/api/result_data/' + taskId);
+    if (resp.ok) {
+      const result = await resp.json();
+      if (result.data && result.data.length > 0) {
+        document.getElementById('resultPanel').classList.remove('hidden');
+        renderTable(result.headers, result.data);
+      }
+    }
+  } catch(e) {}
+
+  // 3. 图片加载
+  const colors = ['W', 'R', 'G', 'B'];
+  loadImages(taskId, 'result', colors, 'resultImageGrid', 'resultImagePanel', ['btnDlW','btnDlR','btnDlG','btnDlB']);
+  loadImages(taskId, 'csf',    colors, 'csfImageGrid',    'csfImagePanel',    ['btnCsfW','btnCsfR','btnCsfG','btnCsfB']);
+}
+
+function renderTable(headers, data) {
+  const tbl = document.getElementById('resultTable');
+  // 简化表头
+  const shortHeaders = ['名称', '横纹', '竖纹', 'R程度', 'G程度', 'B程度', '综合', '参考', '等级'];
+  let html = '<thead><tr>';
+  shortHeaders.forEach(h => { html += '<th>' + h + '</th>'; });
+  html += '</tr></thead><tbody>';
+
+  data.forEach(row => {
+    html += '<tr>';
+    row.forEach((cell, idx) => {
+      if (idx === 8) {
+        // 等级列
+        const lv = String(cell).replace('.', '-');
+        html += '<td><span class="level-tag level-' + lv + '">' + cell + '</span></td>';
+      } else if (idx > 0 && idx < 8) {
+        // 数值列保留 3 位小数
+        const v = parseFloat(cell);
+        html += '<td>' + (isNaN(v) ? cell : v.toFixed(3)) + '</td>';
+      } else {
+        html += '<td>' + cell + '</td>';
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  tbl.innerHTML = html;
+}
+
+function loadImages(taskId, category, colors, gridId, panelId, dlBtnIds) {
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = '';
+  let anyLoaded = false;
+
+  colors.forEach((c, i) => {
+    const imgUrl = '/api/image/' + taskId + '/' + category + '/' + c;
+    const dlUrl  = '/api/image_download/' + taskId + '/' + category + '/' + c;
+
+    const card = document.createElement('div');
+    card.className = 'img-card';
+    card.id = 'card-' + category + '-' + c;
+    const img = new Image();
+    img.onload = function() {
+      anyLoaded = true;
+      document.getElementById(panelId).classList.remove('hidden');
+      if (dlBtnIds[i]) {
+        const btn = document.getElementById(dlBtnIds[i]);
+        btn.href = dlUrl;
+        btn.classList.remove('hidden');
+      }
+    };
+    img.onerror = function() {
+      card.style.display = 'none';
+    };
+    img.src = imgUrl;
+    img.alt = category + '-' + c;
+    card.appendChild(img);
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.textContent = c + ' 通道';
+    card.appendChild(cap);
+    grid.appendChild(card);
+  });
+}
+</script>
+</body>
+</html>
