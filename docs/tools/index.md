@@ -18,7 +18,7 @@
 
     BM + Sensor 叠加摩尔纹仿真，含 CSF 滤波与等级排名。
 
-    [:fontawesome-solid-triangle-exclamation: 因资源有限暂未提供云端服务，有需要请联系作者](about/)
+    因资源有限暂未提供云端服务，有需要[联系作者](about/)
 
     [打开工具](moiré.html)
 
