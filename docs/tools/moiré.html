@@ -224,6 +224,7 @@
 </div>
 
 <script>
+const API_BASE = 'http://localhost:8001';
 // ========== 文件上传 ==========
 function setupFileUpload(boxId, fileInputId, nameId) {
   const box = document.getElementById(boxId);
@@ -286,12 +287,12 @@ async function startSim() {
   form.append('ch_b', document.getElementById('chB').checked ? '1' : '0');
 
   try {
-    const resp = await fetch('/api/run', { method: 'POST', body: form });
+    const resp = await fetch(API_BASE + '/api/run', { method: 'POST', body: form });
     const data = await resp.json();
     const taskId = data.task_id;
     addLog('任务已提交: ' + taskId);
 
-    const evtSource = new EventSource('/api/progress/' + taskId);
+    const evtSource = new EventSource(API_BASE + '/api/progress/' + taskId);
     evtSource.addEventListener('message', (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === 'log') {
@@ -324,12 +325,12 @@ async function onDone(taskId) {
   document.getElementById('progressText').textContent = '100%';
 
   // 1. 下载链接
-  document.getElementById('btnDownload').href = '/api/result/' + taskId;
+  document.getElementById('btnDownload').href = API_BASE + '/api/result/' + taskId;
   document.getElementById('btnDownload').style.display = 'inline-block';
 
   // 2. 排名数据表格
   try {
-    const resp = await fetch('/api/result_data/' + taskId);
+    const resp = await fetch(API_BASE + '/api/result_data/' + taskId);
     if (resp.ok) {
       const result = await resp.json();
       if (result.data && result.data.length > 0) {
@@ -380,8 +381,8 @@ function loadImages(taskId, category, colors, gridId, panelId, dlBtnIds) {
   let anyLoaded = false;
 
   colors.forEach((c, i) => {
-    const imgUrl = '/api/image/' + taskId + '/' + category + '/' + c;
-    const dlUrl  = '/api/image_download/' + taskId + '/' + category + '/' + c;
+    const imgUrl = API_BASE + '/api/image/' + taskId + '/' + category + '/' + c;
+    const dlUrl  = API_BASE + '/api/image_download/' + taskId + '/' + category + '/' + c;
 
     const card = document.createElement('div');
     card.className = 'img-card';
