@@ -8,6 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Polarization Poincaré — Web</title>
 <script src="https://cdn.jsdelivr.net/npm/plotly.js@2.35.2/dist/plotly.min.js"></script>
+<script src="tolerance.js"></script>
 <script>
 /**
  * Polarization Physics Module
@@ -605,6 +606,8 @@ input[type="range"]::-webkit-slider-thumb {
 <header class="top-bar">
   <div class="param"><span class="label">λ</span><span class="value" id="p-lambda">633 nm</span></div>
   <div class="param"><span class="label">θ</span><span class="value" id="p-theta">0.0°</span></div>
+  <div class="param"><span class="label">n₀</span><span class="value" id="p-ninc">1.00</span></div>
+  <div class="param"><span class="label">n_sub</span><span class="value" id="p-nsub">1.52</span></div>
   <div class="param"><span class="label">层数</span><span class="value" id="p-nlayers">1</span></div>
   <div class="param"><span class="label">DoP</span><span class="value" id="p-poldeg">1.0000</span></div>
   <div class="param"><span class="label">模式</span><span class="value" id="p-mode">垂直 | 简化</span></div>
@@ -616,11 +619,12 @@ input[type="range"]::-webkit-slider-thumb {
 <!-- Left Panel -->
 <aside class="left-panel">
 
-  <!-- Header -->
-  <div class="tab-bar" style="gap:12px">
-    <span class="active">偏振分析</span>
-    <a id="hops-link" href="hops.html" style="color:#3b82f6;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #3b82f6;border-radius:4px">HOPS / HyOPS →</a>
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-poincare" onclick="switchTab('poincare')">偏振分析</button>
+    <button class="tab-btn" id="tab-tolerance" onclick="switchTab('tolerance')">容差分析</button>
   </div>
+  <a id="hops-link" href="hops.html" style="display:block;text-align:center;color:#3b82f6;text-decoration:none;font-size:11px;padding:4px 10px;border:1px solid #3b82f6;border-radius:4px">HOPS / HyOPS →</a>
 
   <!-- === Standard Tab Content === -->
   <div id="std-tab-content">
@@ -640,6 +644,21 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="mode-group">
       <button class="mode-btn active" id="btn-simplified" onclick="setModelSimplified()">简化模型</button>
       <button class="mode-btn" id="btn-berreman" disabled>Berreman 4×4 [即将开放]</button>
+    </div>
+  </div>
+
+  <!-- Medium Settings -->
+  <div class="panel">
+    <div class="panel-title">介质设置</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:10px;color:var(--text-secondary)">n_入射:</span>
+      <input type="number" id="in-n-inc" value="1.0" min="0.1" max="10" step="0.01"
+             style="width:55px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
+             onchange="onNIncChange()">
+      <span style="font-size:10px;color:var(--text-secondary)">n_基底:</span>
+      <input type="number" id="in-n-sub" value="1.52" min="0.1" max="10" step="0.01"
+             style="width:55px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center"
+             onchange="onNSubChange()">
     </div>
   </div>
 
@@ -702,16 +721,87 @@ input[type="range"]::-webkit-slider-thumb {
 
   </div><!-- /std-tab-content -->
 
+  <!-- === Tolerance Tab Content === -->
+  <div id="tol-tab-content" style="display:none">
+
+  <!-- Wavelength Range & MC Settings -->
+  <div class="panel">
+    <div class="panel-title">分析设置</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:10px;color:var(--text-secondary)">波长:</span>
+      <input type="number" id="tol-wl-from" value="400" min="300" max="2000" step="10"
+             style="width:60px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px">-</span>
+      <input type="number" id="tol-wl-to" value="800" min="300" max="2000" step="10"
+             style="width:60px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px;color:var(--text-secondary)">nm</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:10px;color:var(--text-secondary)">MC样本:</span>
+      <input type="number" id="tol-mc-samples" value="500" min="50" max="5000" step="50"
+             style="width:65px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px;color:var(--text-secondary)">分析波长:</span>
+      <input type="number" id="tol-wl-single" value="633" min="100" max="10000" step="1"
+             style="width:65px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px;color:var(--text-secondary)">nm</span>
+    </div>
+    <button class="mode-btn active" onclick="runTolAnalysis()"
+            style="margin-top:8px;width:100%;padding:8px;font-size:11px">运行容差分析</button>
+  </div>
+
+  <!-- Substrate Configuration -->
+  <div class="panel">
+    <div class="panel-title">基底设置</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:10px;color:var(--text-secondary)">n_入射:</span>
+      <input type="number" id="tol-n-inc" value="1.0" min="0.1" max="10" step="0.01"
+             onchange="state.nInc=parseFloat(this.value)||1.0;document.getElementById('in-n-inc').value=state.nInc;refreshAll()"
+             style="width:55px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px;color:var(--text-secondary)">n_基底:</span>
+      <input type="number" id="tol-n-sub" value="1.52" min="0.1" max="10" step="0.01"
+             onchange="state.nSub=parseFloat(this.value)||1.52;document.getElementById('in-n-sub').value=state.nSub;refreshAll()"
+             style="width:55px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px;color:var(--text-secondary)">θ入射:</span>
+      <input type="number" id="tol-theta" value="0" min="0" max="89" step="1"
+             onchange="state.thetaInc=parseFloat(this.value)||0;refreshAll()"
+             style="width:45px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center">
+      <span style="font-size:10px;color:var(--text-secondary)">°</span>
+    </div>
+  </div>
+
+  <!-- Per-Layer Tolerance Table -->
+  <div class="panel">
+    <div class="panel-title">膜层容差设置</div>
+    <div style="max-height:250px;overflow-y:auto">
+    <table class="layer-table" id="tol-layer-table">
+      <thead>
+        <tr style="border-bottom:none">
+          <th rowspan="2" style="vertical-align:middle">层</th>
+          <th>n_o</th><th>n_e</th><th>n_z</th><th>d (nm)</th>
+        </tr>
+        <tr>
+          <th>n_o%</th><th>n_e%</th><th>n_z%</th><th>d%</th>
+          <th>灵敏度</th>
+        </tr>
+      </thead>
+      <tbody id="tol-layer-tbody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  </div><!-- /tol-tab-content -->
+
 </aside>
 
 <!-- Center: Poincaré Sphere -->
 <section class="poincare-area">
-  <div class="view-btns">
+  <div class="view-btns" id="view-btns-poincare">
     <button class="view-btn" onclick="setView('main')">主视角</button>
     <button class="view-btn" onclick="setView('side')">侧视角</button>
     <button class="view-btn" onclick="setView('top')">俯视角</button>
   </div>
   <div id="plot3d"></div>
+  <div id="tol-plot" style="display:none;width:100%;height:55%"></div>
 </section>
 
 <!-- Right Panel -->
@@ -764,6 +854,25 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="jones-display" id="jones-display"></div>
   </div>
 
+  <!-- Tolerance Stats (hidden by default) -->
+  <div id="tol-stats-panel" style="display:none">
+    <div class="panel">
+      <div class="panel-title">MC 统计 — <span id="tol-mc-wl">633</span> nm</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--font-mono)">
+        <tr><td style="padding:2px 8px 2px 0;color:var(--text-secondary)">标称 R</td><td style="padding:2px 0;text-align:right;font-weight:600" id="tol-r-nom">--</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;color:var(--text-secondary)">均值 R</td><td style="padding:2px 0;text-align:right;font-weight:600" id="tol-r-mean">--</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;color:var(--text-secondary)">σ</td><td style="padding:2px 0;text-align:right;font-weight:600" id="tol-r-std">--</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;color:var(--text-secondary)">P5 / P95</td><td style="padding:2px 0;text-align:right;font-weight:600"><span id="tol-r-p5">--</span> / <span id="tol-r-p95">--</span></td></tr>
+        <tr><td style="padding:2px 8px 2px 0;color:var(--text-secondary)">最差 R</td><td style="padding:2px 0;text-align:right;font-weight:600" id="tol-r-min">--</td></tr>
+        <tr><td style="padding:2px 8px 2px 0;color:var(--text-secondary)">良率 ±10%</td><td style="padding:2px 0;text-align:right;font-weight:600" id="tol-yield99">--</td></tr>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-title">光柱图</div>
+      <canvas id="tol-hist" width="320" height="160" style="width:100%;background:var(--bg-deep);border-radius:4px"></canvas>
+    </div>
+  </div>
+
 </aside>
 
 </div>
@@ -793,6 +902,286 @@ input[type="range"]::-webkit-slider-thumb {
 
 <script>
 // ============================================================
+// Tolerance analysis (uses TolSimulator from tolerance.js)
+// ============================================================
+let currentTab = 'poincare';
+let tolLayerTols = {}; // {layerIndex: {dPct: 5, nPct: 1}}
+let tolLastResult = null;
+let tolPlotBuilt = false;
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-poincare').classList.toggle('active', tab === 'poincare');
+  document.getElementById('tab-tolerance').classList.toggle('active', tab === 'tolerance');
+
+  const isTol = tab === 'tolerance';
+
+  // Left panel: toggle visibilities
+  document.getElementById('std-tab-content').style.display = isTol ? 'none' : '';
+  document.getElementById('tol-tab-content').style.display = isTol ? '' : 'none';
+
+  // Center: Poincare vs Tolerance plot
+  document.getElementById('plot3d').style.display = isTol ? 'none' : '';
+  document.getElementById('tol-plot').style.display = isTol ? '' : 'none';
+  document.getElementById('view-btns-poincare').style.display = isTol ? 'none' : '';
+
+  // Right panel: regular panels vs tolerance stats
+  document.getElementById('tol-stats-panel').style.display = isTol ? '' : 'none';
+  const rightPanels = document.querySelectorAll('.right-panel > .panel');
+  rightPanels.forEach(p => p.style.display = isTol ? 'none' : '');
+
+  if (isTol) {
+    // Sync substrate params from state → tolerance tab inputs
+    document.getElementById('tol-n-inc').value = state.nInc;
+    document.getElementById('tol-n-sub').value = state.nSub;
+    document.getElementById('tol-theta').value = state.thetaInc;
+    renderTolLayerTable();
+    if (!tolPlotBuilt) {
+      buildTolPlot();
+      tolPlotBuilt = true;
+    } else {
+      Plotly.Plots.resize('tol-plot');
+    }
+  } else {
+    if (poincareBuilt) Plotly.Plots.resize('plot3d');
+  }
+}
+
+function renderTolLayerTable() {
+  const tbody = document.getElementById('tol-layer-tbody');
+  tbody.innerHTML = '';
+  // Clean up stale entries
+  for (const k in tolLayerTols) { if (parseInt(k) >= state.layers.length) delete tolLayerTols[k]; }
+
+  const cellStyle = 'padding:2px 4px;font-size:9px;text-align:center';
+  const inpStyle = 'width:100%;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text-primary);font-family:var(--font-mono);font-size:10px;padding:2px 4px;text-align:center';
+  const dimStyle  = 'color:var(--text-dim)';
+
+  state.layers.forEach((layer, i) => {
+    if (!tolLayerTols[i]) tolLayerTols[i] = { dPct: 5, nPct: 1, nePct: 1, nzPct: 1 };
+    const tol = tolLayerTols[i];
+    const ltype = layer.Type || 'iso';
+    const isIso = ltype === 'iso';
+
+    // Row 1 — layer info values
+    const tr1 = document.createElement('tr');
+    tr1.style.borderBottom = '1px dotted var(--border)';
+    const neVal = isIso ? '<span style="' + dimStyle + '">—</span>' : (layer.n_e || layer.n_o).toFixed(3);
+    const nzVal = isIso ? '<span style="' + dimStyle + '">—</span>' : (layer.n_z || layer.n_o).toFixed(3);
+    tr1.innerHTML = `
+      <td style="${cellStyle}" rowspan="2">${layer.Name || 'L'+(i+1)}</td>
+      <td style="${cellStyle}">${(layer.n_o||1.5).toFixed(3)}</td>
+      <td style="${cellStyle}">${neVal}</td>
+      <td style="${cellStyle}">${nzVal}</td>
+      <td style="${cellStyle}">${layer.d}</td>
+    `;
+    tbody.appendChild(tr1);
+
+    // Row 2 — tolerance inputs + sensitivity
+    const tr2 = document.createElement('tr');
+    const sensHTML = tol.sensitivity !== undefined
+      ? `<td style="${cellStyle};color:${tol.sensitivity === tolMaxSens() ? '#dc2626' : 'var(--text-secondary)'}">${(tol.sensitivity*100).toFixed(4)}%</td>`
+      : `<td style="${cellStyle};${dimStyle}">-</td>`;
+
+    const neInput = (isIso || ltype === 'uniaxial')
+      ? `<span style="${dimStyle}">—</span>`
+      : `<input type="number" value="${tol.nePct||1}" min="0.01" max="20" step="0.1" onchange="tolLayerTols[${i}].nePct=parseFloat(this.value)||1" style="${inpStyle}">`;
+
+    const nzInput = (isIso || ltype !== 'biaxial')
+      ? `<span style="${dimStyle}">—</span>`
+      : `<input type="number" value="${tol.nzPct||1}" min="0.01" max="20" step="0.1" onchange="tolLayerTols[${i}].nzPct=parseFloat(this.value)||1" style="${inpStyle}">`;
+
+    tr2.innerHTML = `
+      <td style="${cellStyle}"><input type="number" value="${tol.nPct||1}" min="0.01" max="20" step="0.1" onchange="tolLayerTols[${i}].nPct=parseFloat(this.value)||1" style="${inpStyle}"></td>
+      <td style="${cellStyle}">${neInput}</td>
+      <td style="${cellStyle}">${nzInput}</td>
+      <td style="${cellStyle}"><input type="number" value="${tol.dPct}" min="0.1" max="50" step="0.1" onchange="tolLayerTols[${i}].dPct=parseFloat(this.value)||5" style="${inpStyle}"></td>
+      ${sensHTML}
+    `;
+    tbody.appendChild(tr2);
+  });
+}
+
+function tolMaxSens() {
+  let max = 0;
+  for (const k in tolLayerTols) {
+    if (tolLayerTols[k].sensitivity > max) max = tolLayerTols[k].sensitivity;
+  }
+  return max;
+}
+
+function runTolAnalysis() {
+  if (state.layers.length === 0) return;
+
+  const wlFrom = parseInt(document.getElementById('tol-wl-from').value) || 400;
+  const wlTo = parseInt(document.getElementById('tol-wl-to').value) || 800;
+  const nMC = parseInt(document.getElementById('tol-mc-samples').value) || 500;
+  const wlSingle = parseInt(document.getElementById('tol-wl-single').value) || 633;
+  const nInc = parseFloat(document.getElementById('tol-n-inc').value) || 1.0;
+  const nSub = parseFloat(document.getElementById('tol-n-sub').value) || 1.52;
+  const theta = parseFloat(document.getElementById('tol-theta').value) || 0;
+
+  document.getElementById('tol-mc-wl').textContent = wlSingle;
+
+  // Update tolerance values from table inputs
+  const dTols = state.layers.map((_, i) => (tolLayerTols[i] || {}).dPct || 5);
+  const nTols  = state.layers.map((_, i) => (tolLayerTols[i] || {}).nPct || 1);
+  const neTols = state.layers.map((_, i) => (tolLayerTols[i] || {}).nePct || 1);
+  const nzTols = state.layers.map((_, i) => (tolLayerTols[i] || {}).nzPct || 1);
+
+  // Build simulator — pass n_e_tol / n_z_tol only when layers have non-iso types
+  const hasNonIso = state.layers.some(l => l.Type === 'uniaxial' || l.Type === 'biaxial');
+  const sim = new TolSimulator(state.layers, nInc, nSub, theta, dTols, nTols,
+    hasNonIso ? neTols : undefined, hasNonIso ? nzTols : undefined);
+
+  // Sensitivity analysis — perturb both d and n_o
+  const factor = 1.0 / 100;
+  const { nList: nlNom, dList: dlNom } = sim._toTmmFormat();
+  const R0 = TMMCalc.rt(wlSingle, nlNom, dlNom, theta).R;
+
+  for (let i = 0; i < state.layers.length; i++) {
+    let maxSens = 0;
+    // Perturb d ±1%
+    const dlPlus = [...dlNom]; dlPlus[i + 1] = dlNom[i + 1] * (1 + factor);
+    maxSens = Math.max(maxSens, Math.abs(TMMCalc.rt(wlSingle, nlNom, dlPlus, theta).R - R0));
+    const dlMinus = [...dlNom]; dlMinus[i + 1] = Math.max(1, dlNom[i + 1] * (1 - factor));
+    maxSens = Math.max(maxSens, Math.abs(TMMCalc.rt(wlSingle, nlNom, dlMinus, theta).R - R0));
+
+    // Perturb n_o ±1%
+    const nlPlus = [...nlNom]; nlPlus[i + 1] = nlNom[i + 1] * (1 + factor);
+    maxSens = Math.max(maxSens, Math.abs(TMMCalc.rt(wlSingle, nlPlus, dlNom, theta).R - R0));
+    const nlMinus = [...nlNom]; nlMinus[i + 1] = Math.max(0.01, nlNom[i + 1] * (1 - factor));
+    maxSens = Math.max(maxSens, Math.abs(TMMCalc.rt(wlSingle, nlMinus, dlNom, theta).R - R0));
+
+    tolLayerTols[i].sensitivity = maxSens;
+  }
+  renderTolLayerTable();
+
+  // Envelope
+  const env = sim.runEnvelope(wlFrom, wlTo, 200, Math.min(nMC, 500), 42);
+
+  // Update tolerance plot
+  updateTolPlot(env, dTols);
+
+  // Single-wavelength MC
+  const mc = sim.runSingle(wlSingle, nMC, 42);
+
+  // Update stats
+  document.getElementById('tol-r-nom').textContent = (R0 * 100).toFixed(2) + '%';
+  document.getElementById('tol-r-mean').textContent = (mc.R_mean * 100).toFixed(2) + '%';
+  document.getElementById('tol-r-std').textContent = (mc.R_std * 100).toFixed(3) + '%';
+  document.getElementById('tol-r-p5').textContent = (mc.R_p5 * 100).toFixed(2) + '%';
+  document.getElementById('tol-r-p95').textContent = (mc.R_p95 * 100).toFixed(2) + '%';
+  document.getElementById('tol-r-min').textContent = (mc.R_min * 100).toFixed(2) + '%';
+  document.getElementById('tol-yield99').textContent = (mc.yield99 * 100).toFixed(1) + '%';
+
+  // Histogram
+  drawTolHist(mc.R_samples);
+
+  tolLastResult = { env, mc, R0 };
+}
+
+function buildTolPlot() {
+  const traces = [
+    { type: 'scatter', mode: 'lines', name: 'Nominal R',
+      x: [], y: [],
+      line: { color: '#2563eb', width: 1.5 },
+      hoverinfo: 'none' },
+    { type: 'scatter', mode: 'lines', name: 'P5',
+      x: [], y: [],
+      line: { color: 'rgba(37,99,235,0.3)', width: 0.6 },
+      hoverinfo: 'none', showlegend: false },
+    { type: 'scatter', mode: 'lines', name: 'P95',
+      x: [], y: [],
+      line: { color: 'rgba(37,99,235,0.3)', width: 0.6 },
+      fill: 'tonexty',
+      fillcolor: 'rgba(37,99,235,0.1)',
+      hoverinfo: 'none' }
+  ];
+  const layout = {
+    height: 300,
+    xaxis: { title: 'Wavelength (nm)', gridcolor: '#e2e8f0', zeroline: false },
+    yaxis: { title: 'R', gridcolor: '#e2e8f0', range: [0, 1] },
+    margin: { l: 40, r: 15, t: 30, b: 35 },
+    paper_bgcolor: '#f1f5f9',
+    plot_bgcolor: '#f8fafc',
+    font: { family: 'Courier New, monospace', size: 10, color: '#1e293b' },
+    showlegend: true,
+    legend: { x: 0.78, y: 0.98, font: { size: 9 } }
+  };
+  Plotly.newPlot('tol-plot', traces, layout, { displayModeBar: false, responsive: true });
+}
+
+function updateTolPlot(env, dTols) {
+  const tolDisp = dTols.slice(0, 4).map((t, i) => `L${i+1}:${t.toFixed(1)}%`).join(', ') +
+    (dTols.length > 4 ? '...' : '');
+  Plotly.restyle('tol-plot', {
+    x: [env.wls, env.wls, env.wls],
+    y: [Array.from(env.R_nom), Array.from(env.R_p5), Array.from(env.R_p95)],
+  });
+  Plotly.relayout('tol-plot', {
+    title: 'R(λ) — TMM 简化模型 — per-layer 容差: ' + tolDisp,
+    'xaxis.range': [Math.min(...env.wls), Math.max(...env.wls)]
+  });
+}
+
+function drawTolHist(samples) {
+  const canvas = document.getElementById('tol-hist');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+  const arr = Array.from(samples);
+  const nBins = 40;
+  const min = Math.min(...arr), max = Math.max(...arr);
+  const range = max - min || 0.01;
+  const binW = range / nBins;
+  const bins = new Array(nBins).fill(0);
+  arr.forEach(v => {
+    const idx = Math.min(nBins - 1, Math.floor((v - min) / binW));
+    bins[idx]++;
+  });
+  const maxCount = Math.max(...bins);
+
+  const pad = { l: 40, r: 10, t: 10, b: 25 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+  ctx.fillStyle = 'rgba(2,132,199,0.6)';
+  ctx.strokeStyle = '#0284c7';
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < nBins; i++) {
+    const x = pad.l + (i / nBins) * pw;
+    const barW = pw / nBins - 1;
+    const barH = (bins[i] / maxCount) * ph;
+    ctx.fillRect(x, pad.t + ph - barH, barW, barH);
+  }
+
+  // X axis labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText((min * 100).toFixed(1) + '%', pad.l, h - 2);
+  ctx.fillText(((max * 100).toFixed(1)) + '%', pad.l + pw, h - 2);
+
+  // Vertical dashed line at nominal
+  if (tolLastResult && tolLastResult.R0 !== undefined) {
+    const nomX = pad.l + ((tolLastResult.R0 - min) / range) * pw;
+    ctx.strokeStyle = '#dc2626';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(nomX, pad.t);
+    ctx.lineTo(nomX, pad.t + ph);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#dc2626';
+    ctx.font = '8px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText((tolLastResult.R0 * 100).toFixed(2) + '%', nomX, pad.t - 2);
+  }
+}
+
+// ============================================================
 // State
 // ============================================================
 const state = {
@@ -807,6 +1196,8 @@ const state = {
   layers: [
     { Name: 'BK7', Type: 'iso', n_o: 1.52, n_e: 1.52, n_z: 1.52, theta_fast: 0, theta_xz: 0, d: 500 }
   ],
+  nInc: 1.0,
+  nSub: 1.52,
   modeNormal: true,
   modelSimplified: true
 };
@@ -821,6 +1212,22 @@ function setModeNormal() {
 }
 
 function setModelSimplified() {
+  refreshAll();
+}
+
+// ============================================================
+// Medium (入射/基底折射率)
+// ============================================================
+function onNIncChange() {
+  state.nInc = parseFloat(document.getElementById('in-n-inc').value) || 1.0;
+  document.getElementById('in-n-inc').value = state.nInc;
+  document.getElementById('tol-n-inc').value = state.nInc;
+  refreshAll();
+}
+function onNSubChange() {
+  state.nSub = parseFloat(document.getElementById('in-n-sub').value) || 1.52;
+  document.getElementById('in-n-sub').value = state.nSub;
+  document.getElementById('tol-n-sub').value = state.nSub;
   refreshAll();
 }
 
@@ -947,6 +1354,7 @@ function onTypeChange(i, newType) {
     state.layers[i].n_z = no;
   }
   renderLayerTable();
+  renderTolLayerTable();
   refreshAll();
 }
 
@@ -956,12 +1364,14 @@ function addLayer() {
     n_o: 1.5, n_e: 1.5, n_z: 1.5, theta_fast: 0, theta_xz: 0, d: 100
   });
   renderLayerTable();
+  renderTolLayerTable();
   refreshAll();
 }
 
 function removeLayer() {
   if (state.layers.length > 0) state.layers.pop();
   renderLayerTable();
+  renderTolLayerTable();
   refreshAll();
 }
 
@@ -969,7 +1379,9 @@ function resetLayers() {
   state.layers = [
     { Name: 'BK7', Type: 'iso', n_o: 1.52, n_e: 1.52, n_z: 1.52, theta_fast: 0, theta_xz: 0, d: 500 }
   ];
+  tolLayerTols = {};
   renderLayerTable();
+  renderTolLayerTable();
   refreshAll();
 }
 
@@ -1297,6 +1709,8 @@ function updateTopBar(result) {
     document.getElementById('p-theta').textContent = state.thetaInc.toFixed(1) + '°';
     document.getElementById('p-nlayers').textContent = state.layers.length;
   }
+  document.getElementById('p-ninc').textContent = state.nInc.toFixed(2);
+  document.getElementById('p-nsub').textContent = state.nSub.toFixed(2);
   document.getElementById('p-poldeg').textContent = result.polDeg.toFixed(4);
   document.getElementById('p-mode').textContent =
     (state.thetaInc < 0.01 ? '垂直' : '斜入射') + ' | ' + (state.modelSimplified ? '简化' : 'Berreman');
