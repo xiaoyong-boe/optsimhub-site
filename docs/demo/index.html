@@ -895,6 +895,8 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="layer-btns" style="flex-direction:column;width:80px">
       <button onclick="addLayer()">+ 添加</button>
       <button onclick="removeLayer()">− 删除</button>
+      <button onclick="moveLayerUp()">↑ 上移</button>
+      <button onclick="moveLayerDown()">↓ 下移</button>
       <button onclick="resetLayers()">恢复默认</button>
     </div>
   </div>
@@ -1373,6 +1375,45 @@ function removeLayer() {
   renderLayerTable();
   renderTolLayerTable();
   refreshAll();
+}
+
+function moveLayerUp() {
+  const sel = getSelectedLayerIndex();
+  if (sel > 0 && sel < state.layers.length) {
+    [state.layers[sel], state.layers[sel - 1]] = [state.layers[sel - 1], state.layers[sel]];
+    renderLayerTable();
+    renderTolLayerTable();
+    selectLayerRow(sel - 1);
+    refreshAll();
+  }
+}
+
+function moveLayerDown() {
+  const sel = getSelectedLayerIndex();
+  if (sel >= 0 && sel < state.layers.length - 1) {
+    [state.layers[sel], state.layers[sel + 1]] = [state.layers[sel + 1], state.layers[sel]];
+    renderLayerTable();
+    renderTolLayerTable();
+    selectLayerRow(sel + 1);
+    refreshAll();
+  }
+}
+
+function getSelectedLayerIndex() {
+  const rows = document.querySelectorAll('#layer-tbody tr');
+  for (let i = 0; i < rows.length; i++) {
+    const firstInput = rows[i].querySelector('input');
+    if (firstInput && document.activeElement === firstInput) return i;
+  }
+  return -1; // no selection, do nothing
+}
+
+function selectLayerRow(idx) {
+  const rows = document.querySelectorAll('#layer-tbody tr');
+  if (idx >= 0 && idx < rows.length) {
+    const firstInput = rows[idx].querySelector('input');
+    if (firstInput) firstInput.focus();
+  }
 }
 
 function resetLayers() {
