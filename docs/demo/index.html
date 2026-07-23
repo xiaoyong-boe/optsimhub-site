@@ -107,7 +107,7 @@ function computeOutput(state) {
     let M_total = StokesCalc.eye4();
     for (const layer of state.layers) {
         const delta = PhaseRetard.calc(layer, state.lambdaNm, isNormal, state.thetaInc);
-        if (Math.abs(delta) > 1e-10) { const M_layer = StokesCalc.muellerWaveplate(delta, layer.theta_fast || 0); M_total = matMul44(M_layer, M_total); }
+        if (Math.abs(delta) > 1e-10) { const M_layer = StokesCalc.muellerWaveplate(delta, layer.theta_fast || 0); M_total = matMul44(M_total, M_layer); }
     }
     const S_out = StokesCalc.mdot(M_total, S_in);
     const sOutN = [S_out[1], S_out[2], S_out[3]];
@@ -131,7 +131,7 @@ function computeOutput(state) {
         const deltaSub = delta / nSub;
         const M_sub = StokesCalc.muellerWaveplate(deltaSub, layer.theta_fast || 0);
         for (let k = 0; k < nSub; k++) {
-            M_running = matMul44(M_sub, M_running);
+            M_running = matMul44(M_running, M_sub);
             const Sl = StokesCalc.mdot(M_running, S_in);
             const nl = Math.sqrt(Sl[1]*Sl[1]+Sl[2]*Sl[2]+Sl[3]*Sl[3])+1e-15;
             const pt = [Sl[1]/nl, Sl[2]/nl, Sl[3]/nl];
@@ -1201,7 +1201,8 @@ const state = {
   nInc: 1.0,
   nSub: 1.52,
   modeNormal: true,
-  modelSimplified: true
+  modelSimplified: true,
+  selectedLayerIdx: -1
 };
 
 // ============================================================
@@ -1315,20 +1316,24 @@ function renderLayerTable() {
     const isBi = layer.Type === 'biaxial';
     const nEditable = isUni || isBi;
     const nZEditable = isBi;
+    const selStyle = i === state.selectedLayerIdx ? 'background:rgba(2,132,199,0.12)' : '';
 
     const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.onclick = () => { state.selectedLayerIdx = i; renderLayerTable(); };
     tr.innerHTML = `
-      <td><input value="${layer.Name}" onchange="updateLayer(${i},'Name',this.value)"></td>
-      <td><select onchange="onTypeChange(${i},this.value)">
+      <td><input value="${layer.Name}" onchange="updateLayer(${i},'Name',this.value)" onclick="event.stopPropagation()"></td>
+      <td><select onchange="onTypeChange(${i},this.value)" onclick="event.stopPropagation()">
         ${typeOptions.map((t, j) => `<option value="${t}" ${t === layer.Type ? 'selected' : ''}>${typeLabels[j]}</option>`).join('')}
       </select></td>
-      <td><input value="${layer.n_o}" onchange="updateLayer(${i},'n_o',parseFloat(this.value)||1.5)" type="number" step="0.01"></td>
+      <td><input value="${layer.n_o}" onchange="updateLayer(${i},'n_o',parseFloat(this.value)||1.5)" type="number" step="0.01" onclick="event.stopPropagation()"></td>
       <td><input value="${layer.n_e}" onchange="if(${nEditable})updateLayer(${i},'n_e',parseFloat(this.value)||1.5)" type="number" step="0.01" ${nEditable ? '' : 'disabled class="dim-cell"'}> </td>
       <td><input value="${layer.n_z}" onchange="if(${nZEditable})updateLayer(${i},'n_z',parseFloat(this.value)||1.5)" type="number" step="0.01" ${nZEditable ? '' : 'disabled class="dim-cell"'}></td>
-      <td><input value="${layer.theta_fast}" onchange="updateLayer(${i},'theta_fast',parseFloat(this.value)||0)" type="number" step="1" style="color:#f59e0b"></td>
+      <td><input value="${layer.theta_fast}" onchange="updateLayer(${i},'theta_fast',parseFloat(this.value)||0)" type="number" step="1" style="color:#f59e0b" onclick="event.stopPropagation()"></td>
       <td><input value="${layer.theta_xz}" disabled class="dim-cell" type="number" step="1"></td>
-      <td><input value="${layer.d}" onchange="updateLayer(${i},'d',parseFloat(this.value)||100)" type="number" step="1"></td>
+      <td><input value="${layer.d}" onchange="updateLayer(${i},'d',parseFloat(this.value)||100)" type="number" step="1" onclick="event.stopPropagation()"></td>
     `;
+    tr.querySelectorAll('td').forEach(td => td.style.background = selStyle);
     tbody.appendChild(tr);
   });
 }
@@ -1365,6 +1370,7 @@ function addLayer() {
     Name: `L${state.layers.length + 1}`, Type: 'iso',
     n_o: 1.5, n_e: 1.5, n_z: 1.5, theta_fast: 0, theta_xz: 0, d: 100
   });
+  state.selectedLayerIdx = state.layers.length - 1;
   renderLayerTable();
   renderTolLayerTable();
   refreshAll();
@@ -1372,47 +1378,31 @@ function addLayer() {
 
 function removeLayer() {
   if (state.layers.length > 0) state.layers.pop();
+  if (state.selectedLayerIdx >= state.layers.length) state.selectedLayerIdx = state.layers.length - 1;
   renderLayerTable();
   renderTolLayerTable();
   refreshAll();
 }
 
 function moveLayerUp() {
-  const sel = getSelectedLayerIndex();
+  const sel = state.selectedLayerIdx;
   if (sel > 0 && sel < state.layers.length) {
     [state.layers[sel], state.layers[sel - 1]] = [state.layers[sel - 1], state.layers[sel]];
+    state.selectedLayerIdx = sel - 1;
     renderLayerTable();
     renderTolLayerTable();
-    selectLayerRow(sel - 1);
     refreshAll();
   }
 }
 
 function moveLayerDown() {
-  const sel = getSelectedLayerIndex();
+  const sel = state.selectedLayerIdx;
   if (sel >= 0 && sel < state.layers.length - 1) {
     [state.layers[sel], state.layers[sel + 1]] = [state.layers[sel + 1], state.layers[sel]];
+    state.selectedLayerIdx = sel + 1;
     renderLayerTable();
     renderTolLayerTable();
-    selectLayerRow(sel + 1);
     refreshAll();
-  }
-}
-
-function getSelectedLayerIndex() {
-  const rows = document.querySelectorAll('#layer-tbody tr');
-  for (let i = 0; i < rows.length; i++) {
-    const firstInput = rows[i].querySelector('input');
-    if (firstInput && document.activeElement === firstInput) return i;
-  }
-  return -1; // no selection, do nothing
-}
-
-function selectLayerRow(idx) {
-  const rows = document.querySelectorAll('#layer-tbody tr');
-  if (idx >= 0 && idx < rows.length) {
-    const firstInput = rows[idx].querySelector('input');
-    if (firstInput) firstInput.focus();
   }
 }
 
@@ -1420,6 +1410,7 @@ function resetLayers() {
   state.layers = [
     { Name: 'BK7', Type: 'iso', n_o: 1.52, n_e: 1.52, n_z: 1.52, theta_fast: 0, theta_xz: 0, d: 500 }
   ];
+  state.selectedLayerIdx = -1;
   tolLayerTols = {};
   renderLayerTable();
   renderTolLayerTable();
